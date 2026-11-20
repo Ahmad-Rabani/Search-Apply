@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { api, getToken } from "../api/client";
 import { JobDescription } from "../components/JobDescription";
 import { PlatformBadge } from "../components/PlatformBadge";
@@ -13,6 +13,9 @@ function scoreTone(score: number) {
 
 export function JobDetailPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const backTo =
+    (location.state as { fromJobs?: string } | null)?.fromJobs || "/jobs";
   const [job, setJob] = useState<Job | null>(null);
   const [tailored, setTailored] = useState<TailoredDoc | null>(null);
   const [application, setApplication] = useState<Application | null>(null);
@@ -170,7 +173,7 @@ export function JobDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/jobs" className="text-sm font-medium text-teal-800 hover:underline">
+      <Link to={backTo} className="text-sm font-medium text-teal-800 hover:underline">
         ← Back to jobs
       </Link>
 

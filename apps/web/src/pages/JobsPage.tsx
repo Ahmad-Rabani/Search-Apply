@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { PlatformBadge } from "../components/PlatformBadge";
 import type { Job } from "../types";
@@ -12,15 +12,22 @@ type SyncSource = {
   reason?: string;
 };
 
+function jobsListPath(query: string) {
+  const trimmed = query.trim();
+  return trimmed ? `/jobs?q=${encodeURIComponent(trimmed)}` : "/jobs";
+}
+
 export function JobsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlQuery = searchParams.get("q") || "";
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(urlQuery);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function loadJobs(search = q) {
+  async function loadJobs(search: string) {
     setLoading(true);
     setError("");
     try {
@@ -34,6 +41,14 @@ export function JobsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function applySearch(search: string) {
+    const trimmed = search.trim();
+    setQ(trimmed);
+    if (trimmed) setSearchParams({ q: trimmed });
+    else setSearchParams({});
+    void loadJobs(trimmed);
   }
 
   async function syncJobs() {
@@ -51,7 +66,7 @@ export function JobsPage() {
           s.error ? `${s.source}: error` : `${s.source}: ${s.upserted}`
         );
       setMessage(`Synced ${data.upserted} jobs (${parts.join(" · ")})`);
-      await loadJobs();
+      await loadJobs(q);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
@@ -60,8 +75,9 @@ export function JobsPage() {
   }
 
   useEffect(() => {
-    void loadJobs("");
-  }, []);
+    setQ(urlQuery);
+    void loadJobs(urlQuery);
+  }, [urlQuery]);
 
   return (
     <div className="space-y-6">
@@ -92,7 +108,7 @@ export function JobsPage() {
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          void loadJobs(q);
+          applySearch(q);
         }}
       >
         <input
@@ -107,6 +123,15 @@ export function JobsPage() {
         >
           Search
         </button>
+        {urlQuery && (
+          <button
+            type="button"
+            onClick={() => applySearch("")}
+            className="rounded-lg border border-teal-900/15 bg-white px-3 py-2 text-sm font-medium text-teal-950/70"
+          >
+            Clear
+          </button>
+        )}
       </form>
 
       {message && <p className="text-sm text-teal-800">{message}</p>}
@@ -131,6 +156,7 @@ export function JobsPage() {
             <li key={job._id}>
               <Link
                 to={`/jobs/${job._id}`}
+                state={{ fromJobs: jobsListPath(urlQuery || q) }}
                 className="block rounded-2xl border border-teal-900/10 bg-white/75 p-4 transition hover:border-teal-700/40 hover:bg-white"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
