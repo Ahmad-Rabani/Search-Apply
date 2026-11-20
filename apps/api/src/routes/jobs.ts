@@ -1,0 +1,158 @@
+import { Router } from "express";
+import fs from "fs";
+import { requireAuth } from "../middleware/auth.js";
+import { Job } from "../models/Job.js";
+import { Profile } from "../models/Profile.js";
+import { User } from "../models/User.js";
+import { TailoredDoc } from "../models/TailoredDoc.js";
+import { Application } from "../models/Application.js";
+import { syncRemoteOkJobs } from "../services/remoteok.js";
+import { scoreJob } from "../services/scoring.js";
+import { tailorCvForJob } from "../services/claude.js";
+import { htmlToPdf } from "../services/pdf.js";
+
+const router = Router();
+
+router.post("/sync", requireAuth, async (_req, res) => {
+  try {
+    const result = await syncRemoteOkJobs();
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error(err);
+    return res.status(502).json({
+      error: err instanceof Error ? err.message : "Job sync failed",
+    });
+  }
+});
+
+router.get("/", requireAuth, async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  const remoteOnly = String(req.query.remoteOnly || "") === "true";
+  const minScore = Number(req.query.minScore || 0);
+  const limit = Math.min(Number(req.query.limit || 50), 100);
+
+  const filter: Record<string, unknown> = {};
+  if (q) filter.$text = { $search: q };
+  if (remoteOnly) filter.remote = true;
+
+  const [jobs, user, profile] = await Promise.all([
+    Job.find(filter).sort({ postedAt: -1, createdAt: -1 }).limit(200),
+    User.findById(req.user!.userId),
+    Profile.findOne({ userId: req.user!.userId }),
+  ]);
+
+  const preferences = user?.preferences || {
+    roles: [],
+    locations: [],
+    remoteOnly: true,
+    minSalary: 0,
+    keywords: [],
+  };
+
+  const scored = jobs
+    .map((job) => ({
+      ...job.toObject(),
+      relevanceScore: scoreJob(job, preferences, profile?.skills || []),
+    }))
+    .filter((j) => j.relevanceScore >= minScore)
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, limit);
+
+  return res.json({ jobs: scored, count: scored.length });
+});
+
+router.get("/:id", requireAuth, async (req, res) => {
+  const job = await Job.findById(req.params.id);
+  if (!job) return res.status(404).json({ error: "Job not found" });
+
+  const [user, profile, tailored, application] = await Promise.all([
+    User.findById(req.user!.userId),
+    Profile.findOne({ userId: req.user!.userId }),
+    TailoredDoc.findOne({ userId: req.user!.userId, jobId: job._id }),
+    Application.findOne({ userId: req.user!.userId, jobId: job._id }),
+  ]);
+
+  const relevanceScore = scoreJob(
+    job,
+    user?.preferences || {},
+    profile?.skills || []
+  );
+
+  return res.json({
+    job: { ...job.toObject(), relevanceScore },
+    tailored,
+    application,
+  });
+});
+
+router.post("/:id/tailor", requireAuth, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+
+    const profile = await Profile.findOne({ userId: req.user!.userId });
+    if (!profile || !profile.fullName) {
+      return res.status(400).json({
+        error: "Complete your profile (at least full name) before tailoring a CV",
+      });
+    }
+
+    const result = await tailorCvForJob(profile, job);
+
+    const tailored = await TailoredDoc.findOneAndUpdate(
+      { userId: req.user!.userId, jobId: job._id },
+      {
+        userId: req.user!.userId,
+        jobId: job._id,
+        ...result,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    await Application.findOneAndUpdate(
+      { userId: req.user!.userId, jobId: job._id },
+      {
+        userId: req.user!.userId,
+        jobId: job._id,
+        tailoredDocId: tailored._id,
+        status: "tailored",
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({ tailored });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      error: err instanceof Error ? err.message : "Tailoring failed",
+    });
+  }
+});
+
+router.get("/:id/pdf", requireAuth, async (req, res) => {
+  try {
+    const tailored = await TailoredDoc.findOne({
+      userId: req.user!.userId,
+      jobId: req.params.id,
+    });
+    if (!tailored?.cvHtml) {
+      return res.status(404).json({ error: "Tailor the CV first" });
+    }
+
+    const filename = `cv-${req.user!.userId}-${req.params.id}.pdf`;
+    const pdfPath = await htmlToPdf(tailored.cvHtml, filename);
+    tailored.pdfPath = pdfPath;
+    await tailored.save();
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return fs.createReadStream(pdfPath).pipe(res);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      error: err instanceof Error ? err.message : "PDF generation failed",
+    });
+  }
+});
+
+export default router;
