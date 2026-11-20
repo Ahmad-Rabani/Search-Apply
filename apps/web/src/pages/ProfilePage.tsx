@@ -557,15 +557,18 @@ export function ProfilePage() {
               onChange={(e) => setPrefs({ ...prefs, minSalary: Number(e.target.value) || 0 })}
             />
           </label>
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={prefs.remoteOnly}
-              onChange={(e) => setPrefs({ ...prefs, remoteOnly: e.target.checked })}
-              className="accent-teal-700"
-            />
-            Remote only
-          </label>
+          <div className="block text-sm">
+            <span className="mb-1 block font-medium text-teal-950/70">Work type</span>
+            <label className="saa-input flex h-[42px] cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={prefs.remoteOnly}
+                onChange={(e) => setPrefs({ ...prefs, remoteOnly: e.target.checked })}
+                className="h-4 w-4 accent-teal-700"
+              />
+              <span className="font-medium text-teal-950">Remote only</span>
+            </label>
+          </div>
         </div>
       </section>
 

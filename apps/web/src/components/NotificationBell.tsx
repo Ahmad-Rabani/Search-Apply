@@ -62,12 +62,24 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-lg border border-teal-900/12 bg-white/70 px-2.5 py-1.5 text-sm font-semibold text-teal-950/80 hover:bg-white"
-        aria-label="Notifications"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-teal-900/12 bg-white/70 text-teal-950/80 hover:bg-white"
+        aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
       >
-        Alerts
+        <svg
+          viewBox="0 0 24 24"
+          className="h-[18px] w-[18px]"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5" />
+          <path d="M9.5 17a2.5 2.5 0 0 0 5 0" />
+        </svg>
         {unread > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-teal-800 px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-1 -top-1 inline-flex min-w-4.5 items-center justify-center rounded-full bg-teal-800 px-1 text-[10px] font-bold leading-4 text-white">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
