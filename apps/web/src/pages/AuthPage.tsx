@@ -29,15 +29,15 @@ export function AuthPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-10">
-      <p className="font-display text-4xl text-teal-950">Search&Apply</p>
-      <p className="mt-2 text-teal-950/70">
-        Find roles, tailor an ATS-ready CV per job, track every application.
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-800/70">
+        Personal job agent
+      </p>
+      <p className="font-display mt-2 text-4xl text-teal-950 md:text-5xl">Search&Apply</p>
+      <p className="mt-3 text-teal-950/65">
+        Discover roles, match an ATS CV, assist apply, and let Agent mode hunt daily for you.
       </p>
 
-      <form
-        onSubmit={onSubmit}
-        className="mt-8 space-y-4 rounded-2xl border border-teal-900/10 bg-white/70 p-6 shadow-sm backdrop-blur"
-      >
+      <form onSubmit={onSubmit} className="saa-card mt-8 space-y-4 p-6">
         <div className="flex gap-2 rounded-lg bg-teal-900/5 p-1">
           {(["register", "login"] as const).map((m) => (
             <button

@@ -26,11 +26,69 @@ body {
   font-family: var(--font-sans);
   color: var(--color-ink);
   background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(15, 118, 110, 0.18), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(196, 122, 26, 0.12), transparent 50%),
-    linear-gradient(180deg, #f7fbfa 0%, #eef5f3 100%);
+    radial-gradient(900px 480px at 8% -8%, rgba(15, 118, 110, 0.16), transparent 55%),
+    radial-gradient(700px 420px at 100% 0%, rgba(15, 61, 46, 0.08), transparent 45%),
+    linear-gradient(180deg, #f5faf8 0%, #eaf3f0 100%);
 }
 
 .font-display {
   font-family: var(--font-display);
+}
+
+.saa-card {
+  border: 1px solid rgba(15, 61, 46, 0.1);
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 1rem;
+  box-shadow: 0 1px 0 rgba(15, 61, 46, 0.03);
+}
+
+.saa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.7rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  transition: 0.15s ease;
+}
+
+.saa-btn-primary {
+  background: #0f766e;
+  color: #fff;
+}
+
+.saa-btn-primary:hover {
+  background: #0b5f58;
+}
+
+.saa-btn-secondary {
+  background: #fff;
+  border: 1px solid rgba(15, 61, 46, 0.14);
+  color: #10201d;
+}
+
+.saa-btn-secondary:hover {
+  background: #f3faf8;
+}
+
+.saa-btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(15, 61, 46, 0.12);
+  color: rgba(16, 32, 29, 0.72);
+}
+
+.saa-input {
+  width: 100%;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(15, 61, 46, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.65rem 0.85rem;
+  outline: none;
+}
+
+.saa-input:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
 }

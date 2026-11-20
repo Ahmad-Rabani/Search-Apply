@@ -9,7 +9,6 @@ type SyncSource = {
   upserted: number;
   skipped?: boolean;
   error?: string;
-  reason?: string;
 };
 
 const ALL_PLATFORMS = ["remoteok", "remotive", "arbeitnow", "jobicy", "adzuna"] as const;
@@ -20,6 +19,12 @@ function jobsListPath(query: string, sources: string[]) {
   if (sources.length) params.set("sources", sources.join(","));
   const qs = params.toString();
   return qs ? `/jobs?${qs}` : "/jobs";
+}
+
+function matchTone(score: number) {
+  if (score >= 70) return "bg-teal-800 text-white";
+  if (score >= 50) return "bg-teal-100 text-teal-900";
+  return "bg-stone-100 text-stone-700";
 }
 
 export function JobsPage() {
@@ -92,10 +97,8 @@ export function JobsPage() {
       );
       const parts = (data.sources || [])
         .filter((s) => !s.skipped)
-        .map((s) =>
-          s.error ? `${s.source}: error` : `${s.source}: ${s.upserted}`
-        );
-      setMessage(`Synced ${data.upserted} jobs (${parts.join(" · ")})`);
+        .map((s) => (s.error ? `${s.source}: error` : `${s.source}: ${s.upserted}`));
+      setMessage(`Synced ${data.upserted} jobs · ${parts.join(" · ")}`);
       await loadJobs(q, selectedSources);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
@@ -111,36 +114,61 @@ export function JobsPage() {
   }, [urlQuery, urlSources.join(",")]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl text-teal-950">Job feed</h1>
-          <p className="mt-1 text-teal-950/65">
-            Filter by platform, sync boards, then tailor a matched CV before apply.
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-800/70">
+            Discover
+          </p>
+          <h1 className="font-display text-3xl text-teal-950 md:text-4xl">Job feed</h1>
+          <p className="mt-1 max-w-xl text-sm text-teal-950/60">
+            Search and filter roles, then open a job to match your CV before applying.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void syncJobs()}
           disabled={syncing}
-          className="rounded-lg bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-900 disabled:opacity-60"
+          className="saa-btn saa-btn-secondary self-start disabled:opacity-60"
         >
-          {syncing ? "Syncing boards…" : "Sync all boards"}
+          {syncing ? "Syncing…" : "Refresh boards"}
         </button>
       </div>
 
-      <section className="rounded-2xl border border-teal-900/10 bg-white/70 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-teal-950">Platform filter</p>
-          <button
-            type="button"
-            className="text-xs font-semibold text-teal-800 hover:underline"
-            onClick={() => applyFilters(q, [])}
-          >
-            All platforms
-          </button>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+      <div className="saa-card p-3 md:p-4">
+        <form
+          className="flex flex-col gap-3 md:flex-row md:items-center"
+          onSubmit={(e) => {
+            e.preventDefault();
+            applyFilters(q, selectedSources);
+          }}
+        >
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search title, company, skills…"
+            className="saa-input md:flex-1"
+          />
+          <div className="flex gap-2">
+            <button type="submit" className="saa-btn saa-btn-primary flex-1 md:flex-none">
+              Search
+            </button>
+            {(urlQuery || urlSources.length > 0) && (
+              <button
+                type="button"
+                onClick={() => applyFilters("", [])}
+                className="saa-btn saa-btn-ghost"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </form>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-teal-900/8 pt-3">
+          <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-teal-950/45">
+            Platforms
+          </span>
           {ALL_PLATFORMS.map((source) => {
             const active = selectedSources.includes(source);
             return (
@@ -148,97 +176,92 @@ export function JobsPage() {
                 key={source}
                 type="button"
                 onClick={() => toggleSource(source)}
-                className={`rounded-lg transition ${
-                  active
-                    ? "ring-2 ring-teal-700 ring-offset-1"
-                    : "opacity-55 hover:opacity-100"
+                className={`rounded-md transition ${
+                  active ? "scale-[1.02] ring-2 ring-teal-700/50 ring-offset-1" : "opacity-50 hover:opacity-90"
                 }`}
               >
                 <PlatformBadge source={source} size="sm" />
               </button>
             );
           })}
-        </div>
-        <p className="mt-2 text-xs text-teal-950/55">
-          {selectedSources.length
-            ? `Showing: ${selectedSources.join(", ")}`
-            : "Showing jobs from all platforms"}
-        </p>
-      </section>
-
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          applyFilters(q, selectedSources);
-        }}
-      >
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search title, company, skills…"
-          className="flex-1 rounded-lg border border-teal-900/15 bg-white/80 px-3 py-2 outline-none focus:border-teal-700"
-        />
-        <button
-          type="submit"
-          className="rounded-lg border border-teal-900/15 bg-white px-4 py-2 text-sm font-semibold"
-        >
-          Search
-        </button>
-        {(urlQuery || urlSources.length > 0) && (
           <button
             type="button"
-            onClick={() => applyFilters("", [])}
-            className="rounded-lg border border-teal-900/15 bg-white px-3 py-2 text-sm font-medium text-teal-950/70"
+            onClick={() => applyFilters(q, [])}
+            className="ml-auto text-xs font-semibold text-teal-800 hover:underline"
           >
-            Clear
+            All
           </button>
-        )}
-      </form>
+        </div>
+      </div>
 
-      {message && <p className="text-sm text-teal-800">{message}</p>}
+      <div className="flex items-center justify-between gap-3 text-sm text-teal-950/55">
+        <p>
+          {loading
+            ? "Loading…"
+            : `${jobs.length} role${jobs.length === 1 ? "" : "s"}`}
+          {selectedSources.length ? ` · ${selectedSources.join(", ")}` : ""}
+          {urlQuery ? ` · “${urlQuery}”` : ""}
+        </p>
+        {message && <p className="text-teal-800">{message}</p>}
+      </div>
       {error && <p className="text-sm text-red-700">{error}</p>}
 
       {loading ? (
-        <p className="text-teal-950/60">Loading jobs…</p>
+        <div className="saa-card p-8 text-center text-teal-950/55">Loading jobs…</div>
       ) : jobs.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-teal-900/20 bg-white/50 p-8 text-center">
-          <p className="font-medium text-teal-950">
-            {q.trim() || selectedSources.length
-              ? "No jobs match these filters"
-              : "No jobs yet"}
-          </p>
-          <p className="mt-1 text-sm text-teal-950/60">
-            Try clearing filters or Sync all boards.
+        <div className="saa-card border-dashed p-10 text-center">
+          <p className="font-semibold text-teal-950">No matching roles</p>
+          <p className="mt-1 text-sm text-teal-950/55">
+            Clear filters or refresh boards for newer listings.
           </p>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid gap-3">
           {jobs.map((job) => (
             <li key={job._id}>
               <Link
                 to={`/jobs/${job._id}`}
                 state={{ fromJobs: jobsListPath(urlQuery || q, selectedSources) }}
-                className="block rounded-2xl border border-teal-900/10 bg-white/75 p-4 transition hover:border-teal-700/40 hover:bg-white"
+                className="saa-card group block p-4 transition hover:-translate-y-0.5 hover:border-teal-700/25 hover:shadow-md"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 space-y-2">
-                    <PlatformBadge source={job.source} size="sm" />
-                    <h2 className="text-lg font-semibold text-teal-950">{job.title}</h2>
-                    <p className="text-sm text-teal-950/70">
-                      {job.company} · {job.location || "Remote"}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <PlatformBadge source={job.source} size="sm" />
+                      {job.remote && (
+                        <span className="rounded-md bg-teal-900/5 px-2 py-0.5 text-[11px] font-medium text-teal-900/70">
+                          Remote
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="text-lg font-semibold leading-snug text-teal-950 group-hover:text-teal-800">
+                      {job.title}
+                    </h2>
+                    <p className="text-sm text-teal-950/60">
+                      {job.company}
+                      <span className="mx-1.5 text-teal-900/25">·</span>
+                      {job.location || "Remote"}
                     </p>
                   </div>
-                  <span className="rounded-md bg-teal-900/8 px-2.5 py-1 text-sm font-semibold text-teal-900">
-                    {job.relevanceScore ?? 0}% match
-                  </span>
+                  <div
+                    className={`shrink-0 rounded-xl px-3 py-2 text-center ${matchTone(
+                      job.relevanceScore ?? 0
+                    )}`}
+                  >
+                    <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+                      Match
+                    </p>
+                    <p className="text-lg font-bold leading-none">
+                      {job.relevanceScore ?? 0}%
+                    </p>
+                  </div>
                 </div>
                 {job.tags?.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {job.tags.slice(0, 8).map((tag) => (
+                  <div className="mt-3 flex flex-wrap gap-1.5 border-t border-teal-900/6 pt-3">
+                    {job.tags.slice(0, 7).map((tag) => (
                       <span
                         key={tag}
-                        className="rounded bg-teal-900/5 px-2 py-0.5 text-xs text-teal-950/70"
+                        className="rounded-md bg-teal-950/[0.04] px-2 py-0.5 text-xs text-teal-950/65"
                       >
                         {tag}
                       </span>

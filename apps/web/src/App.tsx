@@ -7,6 +7,7 @@ import { JobsPage } from "./pages/JobsPage";
 import { JobDetailPage } from "./pages/JobDetailPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { TrackerPage } from "./pages/TrackerPage";
+import { AgentPage } from "./pages/AgentPage";
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="jobs/:id" element={<JobDetailPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="tracker" element={<TrackerPage />} />
+          <Route path="agent" element={<AgentPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

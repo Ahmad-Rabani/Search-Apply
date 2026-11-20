@@ -73,9 +73,12 @@ export function TrackerPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl text-teal-950">Application tracker</h1>
-        <p className="mt-1 text-teal-950/65">
-          Phase 2: filter by status/platform, notes, and apply-assist screenshots.
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-800/70">
+          Pipeline
+        </p>
+        <h1 className="font-display text-3xl text-teal-950 md:text-4xl">Application tracker</h1>
+        <p className="mt-1 text-sm text-teal-950/60">
+          Filter by status and platform, keep notes, review apply screenshots.
         </p>
       </div>
 

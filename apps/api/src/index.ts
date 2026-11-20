@@ -7,10 +7,13 @@ import authRoutes from "./routes/auth.js";
 import profileRoutes from "./routes/profile.js";
 import jobRoutes from "./routes/jobs.js";
 import applicationRoutes from "./routes/applications.js";
+import agentRoutes from "./routes/agent.js";
+import { startAgentScheduler } from "./services/scheduler.js";
 
 async function main() {
   await fs.mkdir(config.storageDir, { recursive: true });
   await connectDb();
+  startAgentScheduler();
 
   const app = express();
   app.use(
@@ -40,6 +43,7 @@ async function main() {
   app.use("/api/profile", profileRoutes);
   app.use("/api/jobs", jobRoutes);
   app.use("/api/applications", applicationRoutes);
+  app.use("/api/agent", agentRoutes);
 
   app.use(
     (
