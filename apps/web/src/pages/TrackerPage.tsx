@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, getToken } from "../api/client";
 import { PlatformBadge } from "../components/PlatformBadge";
 import { PlatformFilter } from "../components/PlatformFilter";
+import { toastFromError, toastSuccess } from "../lib/toast";
 import type { Application, Job } from "../types";
 
 const statuses = ["saved", "tailored", "applied", "interview", "offer", "rejected"] as const;
@@ -11,13 +12,11 @@ export function TrackerPage() {
   const [apps, setApps] = useState<Application[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string[]>([]);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
 
   async function load() {
     setLoading(true);
-    setError("");
     try {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
@@ -39,7 +38,7 @@ export function TrackerPage() {
       for (const a of list) notes[a._id] = a.notes || "";
       setEditingNotes(notes);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
+      toastFromError(err, "Failed to load tracker");
     } finally {
       setLoading(false);
     }
@@ -55,9 +54,10 @@ export function TrackerPage() {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
+      toastSuccess("Status updated", status);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Update failed");
+      toastFromError(err, "Update failed");
     }
   }
 
@@ -67,8 +67,9 @@ export function TrackerPage() {
         method: "PATCH",
         body: JSON.stringify({ notes: editingNotes[id] || "" }),
       });
+      toastSuccess("Notes saved");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Notes save failed");
+      toastFromError(err, "Notes save failed");
     }
   }
 
@@ -118,7 +119,6 @@ export function TrackerPage() {
         />
       </section>
 
-      {error && <p className="text-sm text-red-700">{error}</p>}
       {loading ? (
         <p className="text-teal-950/55">Loading tracker…</p>
       ) : apps.length === 0 ? (

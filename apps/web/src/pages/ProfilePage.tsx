@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, getToken } from "../api/client";
+import { toastFromError, toastSuccess } from "../lib/toast";
 import type { Education, Experience, Preferences, Profile, Project } from "../types";
 
 const emptyProfile: Profile = {
@@ -32,8 +33,6 @@ export function ProfilePage() {
   const [rolesText, setRolesText] = useState("");
   const [locationsText, setLocationsText] = useState("");
   const [keywordsText, setKeywordsText] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -52,7 +51,7 @@ export function ProfilePage() {
         setLocationsText((pr.preferences.locations || []).join(", "));
         setKeywordsText((pr.preferences.keywords || []).join(", "));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load profile");
+        toastFromError(err, "Failed to load profile");
       } finally {
         setLoading(false);
       }
@@ -62,8 +61,6 @@ export function ProfilePage() {
 
   async function uploadCv(file: File) {
     setUploading(true);
-    setMessage("");
-    setError("");
     try {
       const form = new FormData();
       form.append("cv", file);
@@ -83,9 +80,9 @@ export function ProfilePage() {
         setLocationsText((data.preferences.locations || []).join(", "));
         setKeywordsText((data.preferences.keywords || []).join(", "));
       }
-      setMessage("CV parsed into your profile. Review below, then save.");
+      toastSuccess("CV uploaded", "Review the fields below, then save.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "CV upload failed");
+      toastFromError(err, "CV upload failed");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -95,8 +92,6 @@ export function ProfilePage() {
   async function save(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setMessage("");
-    setError("");
     try {
       const skills = skillsText
         .split(",")
@@ -118,9 +113,9 @@ export function ProfilePage() {
         }),
       });
 
-      setMessage("Profile saved — ready for matching and Agent mode.");
+      toastSuccess("Profile saved", "Ready for matching and Agent mode.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      toastFromError(err, "Save failed");
     } finally {
       setSaving(false);
     }
@@ -163,16 +158,6 @@ export function ProfilePage() {
           {saving ? "Saving…" : "Save profile"}
         </button>
       </div>
-
-      {(message || error) && (
-        <div
-          className={`saa-card px-4 py-3 text-sm ${
-            error ? "border-red-200 bg-red-50 text-red-800" : "border-teal-200 bg-teal-50 text-teal-900"
-          }`}
-        >
-          {error || message}
-        </div>
-      )}
 
       <section className="saa-card overflow-hidden">
         <div className="border-b border-teal-900/8 bg-gradient-to-r from-teal-950 to-teal-800 px-5 py-4 text-white">

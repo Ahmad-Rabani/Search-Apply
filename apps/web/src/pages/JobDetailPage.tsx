@@ -3,6 +3,12 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { api, getToken } from "../api/client";
 import { JobDescription } from "../components/JobDescription";
 import { PlatformBadge } from "../components/PlatformBadge";
+import {
+  toastError,
+  toastFromError,
+  toastInfo,
+  toastSuccess,
+} from "../lib/toast";
 import type { Application, InterviewPrep, Job, TailoredDoc } from "../types";
 
 type WorkKind = "idle" | "match" | "pdf" | "apply" | "assist" | "interview";
@@ -41,8 +47,7 @@ export function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [work, setWork] = useState<WorkKind>("idle");
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState("");
-  const [hint, setHint] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [showMore, setShowMore] = useState(false);
   const progressTimer = useRef<number | null>(null);
 
@@ -75,7 +80,7 @@ export function JobDetailPage() {
   async function load() {
     if (!id) return;
     setLoading(true);
-    setError("");
+    setLoadError("");
     try {
       const data = await api<{
         job: Job;
@@ -88,7 +93,7 @@ export function JobDetailPage() {
       setApplication(data.application);
       setInterviewPrep(data.interviewPrep);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load job");
+      setLoadError(toastFromError(err, "Failed to load job"));
     } finally {
       setLoading(false);
     }
@@ -120,8 +125,6 @@ export function JobDetailPage() {
   async function tailor() {
     if (!id) return;
     setWork("match");
-    setError("");
-    setHint("");
     startMatchProgress();
     try {
       const data = await api<{ tailored: TailoredDoc }>(`/api/jobs/${id}/tailor`, {
@@ -129,12 +132,12 @@ export function JobDetailPage() {
       });
       finishProgress();
       setTailored(data.tailored);
-      setHint("Matched CV ready. Review the preview, then download and apply.");
+      toastSuccess("CV matched", "Review the preview, then download and apply.");
       await load();
     } catch (err) {
       clearProgressTimer();
       setProgress(0);
-      setError(err instanceof Error ? err.message : "Matching failed");
+      toastFromError(err, "Matching failed");
     } finally {
       setTimeout(() => {
         setWork("idle");
@@ -146,11 +149,10 @@ export function JobDetailPage() {
   async function downloadAndOpen() {
     if (!id || !job) return;
     if (!tailored) {
-      setError("Match your CV first, then download and apply.");
+      toastError("Match your CV first", "Then you can download and apply.");
       return;
     }
     setWork("apply");
-    setError("");
     try {
       await downloadPdfBlob();
       window.open(job.url, "_blank", "noopener,noreferrer");
@@ -159,10 +161,10 @@ export function JobDetailPage() {
         body: JSON.stringify({ jobId: id, status: "applied" }),
       });
       setApplication(appData.application);
-      setHint("PDF downloaded and apply page opened. Upload this PDF on the form.");
+      toastSuccess("Ready to apply", "PDF downloaded and apply page opened.");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not prepare apply");
+      toastFromError(err, "Could not prepare apply");
     } finally {
       setWork("idle");
     }
@@ -170,16 +172,15 @@ export function JobDetailPage() {
 
   async function downloadOnly() {
     if (!tailored) {
-      setError("Match your CV first to download the PDF.");
+      toastError("Match your CV first", "Then download the PDF.");
       return;
     }
     setWork("pdf");
-    setError("");
     try {
       await downloadPdfBlob();
-      setHint("PDF downloaded. Use this file on the employer’s apply form.");
+      toastSuccess("PDF downloaded", "Upload this file on the employer’s form.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "PDF failed");
+      toastFromError(err, "PDF download failed");
     } finally {
       setWork("idle");
     }
@@ -188,7 +189,7 @@ export function JobDetailPage() {
   async function markApplied() {
     if (!id) return;
     if (!tailored) {
-      setError("Match your CV before marking this job as applied.");
+      toastError("Match your CV first", "Then mark this job as applied.");
       return;
     }
     setWork("apply");
@@ -198,9 +199,9 @@ export function JobDetailPage() {
         body: JSON.stringify({ jobId: id, status: "applied" }),
       });
       setApplication(data.application);
-      setHint("Marked as applied in your tracker.");
+      toastSuccess("Marked as applied");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Update failed");
+      toastFromError(err, "Could not update status");
     } finally {
       setWork("idle");
     }
@@ -209,18 +210,16 @@ export function JobDetailPage() {
   async function makeInterviewPrep() {
     if (!id) return;
     setWork("interview");
-    setError("");
-    setHint("");
     try {
       const data = await api<{ interviewPrep: InterviewPrep }>(
         `/api/jobs/${id}/interview-prep`,
         { method: "POST" }
       );
       setInterviewPrep(data.interviewPrep);
-      setHint("Interview prep ready below.");
+      toastSuccess("Interview prep ready");
       setShowMore(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Interview prep failed");
+      toastFromError(err, "Interview prep failed");
     } finally {
       setWork("idle");
     }
@@ -229,12 +228,11 @@ export function JobDetailPage() {
   async function applyAssist() {
     if (!id) return;
     if (!tailored) {
-      setError("Match your CV first, then use Apply Assist.");
+      toastError("Match your CV first", "Then use Apply Assist.");
       return;
     }
     setWork("assist");
-    setError("");
-    setHint("Opening the apply page and filling common fields…");
+    toastInfo("Apply Assist running", "Filling common fields — you confirm submit.");
     try {
       await fetch(`/api/jobs/${id}/pdf`, {
         headers: { Authorization: `Bearer ${getToken()}` },
@@ -246,21 +244,22 @@ export function JobDetailPage() {
       }>(`/api/applications/${id}/apply-assist`, { method: "POST" });
 
       setApplication(data.application);
-      setHint(
+      toastSuccess(
+        "Apply Assist finished",
         `${data.assist.message} Filled: ${
           data.assist.filledFields?.join(", ") || "none detected"
-        }. Confirm submit yourself.`
+        }.`
       );
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Apply assist failed");
+      toastFromError(err, "Apply assist failed");
     } finally {
       setWork("idle");
     }
   }
 
   if (loading) return <p className="text-teal-950/60">Loading…</p>;
-  if (!job) return <p className="text-red-700">{error || "Job not found"}</p>;
+  if (!job) return <p className="text-red-700">{loadError || "Job not found"}</p>;
 
   const matched = Boolean(tailored);
   const applied = application?.status === "applied";
@@ -485,10 +484,6 @@ export function JobDetailPage() {
             </div>
           )}
 
-          {hint && !matching && (
-            <p className="mt-4 text-sm text-teal-800">{hint}</p>
-          )}
-          {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
           {!matched && !matching && (
             <p className="mt-4 rounded-xl border border-amber-700/15 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
               A matched CV is required before you apply. Save your base profile on{" "}

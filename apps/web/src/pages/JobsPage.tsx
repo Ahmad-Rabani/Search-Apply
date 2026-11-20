@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import { AdSlot } from "../components/AdSlot";
 import { PlatformBadge } from "../components/PlatformBadge";
 import { PlatformFilter } from "../components/PlatformFilter";
+import { toastFromError, toastSuccess } from "../lib/toast";
 import type { Job } from "../types";
 
 type SyncSource = {
@@ -45,12 +46,8 @@ export function JobsPage() {
   const [selectedSources, setSelectedSources] = useState<string[]>(urlSources);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-
   async function loadJobs(search: string, sources: string[]) {
     setLoading(true);
-    setError("");
     try {
       const params = new URLSearchParams();
       if (search.trim()) params.set("q", search.trim());
@@ -59,7 +56,7 @@ export function JobsPage() {
       const data = await api<{ jobs: Job[] }>(`/api/jobs?${params}`);
       setJobs(data.jobs);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load jobs");
+      toastFromError(err, "Failed to load jobs");
     } finally {
       setLoading(false);
     }
@@ -82,8 +79,6 @@ export function JobsPage() {
 
   async function syncJobs() {
     setSyncing(true);
-    setMessage("");
-    setError("");
     try {
       const data = await api<{ upserted: number; sources: SyncSource[] }>(
         "/api/jobs/sync",
@@ -92,10 +87,13 @@ export function JobsPage() {
       const parts = (data.sources || [])
         .filter((s) => !s.skipped)
         .map((s) => (s.error ? `${s.source}: error` : `${s.source}: ${s.upserted}`));
-      setMessage(`Synced ${data.upserted} jobs · ${parts.join(" · ")}`);
+      toastSuccess(
+        `Synced ${data.upserted} jobs`,
+        parts.length ? parts.join(" · ") : undefined
+      );
       await loadJobs(q, selectedSources);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed");
+      toastFromError(err, "Sync failed");
     } finally {
       setSyncing(false);
     }
@@ -176,9 +174,7 @@ export function JobsPage() {
           {selectedSources.length ? ` · ${selectedSources.join(", ")}` : ""}
           {urlQuery ? ` · “${urlQuery}”` : ""}
         </p>
-        {message && <p className="text-teal-800">{message}</p>}
       </div>
-      {error && <p className="text-sm text-red-700">{error}</p>}
 
       {loading ? (
         <div className="saa-card p-8 text-center text-teal-950/55">Loading jobs…</div>

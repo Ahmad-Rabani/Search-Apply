@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { toastFromError, toastSuccess } from "../lib/toast";
 
 export function AuthPage() {
   const { user, loading, login, register } = useAuth();
@@ -8,20 +9,23 @@ export function AuthPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!loading && user) return <Navigate to="/dashboard" replace />;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError("");
     setBusy(true);
     try {
-      if (mode === "login") await login(email, password);
-      else await register(email, password, name);
+      if (mode === "login") {
+        await login(email, password);
+        toastSuccess("Welcome back");
+      } else {
+        await register(email, password, name);
+        toastSuccess("Account created");
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      toastFromError(err, "Something went wrong");
     } finally {
       setBusy(false);
     }
@@ -88,8 +92,6 @@ export function AuthPage() {
             required
           />
         </label>
-
-        {error && <p className="text-sm text-red-700">{error}</p>}
 
         <button type="submit" disabled={busy} className="saa-btn saa-btn-primary w-full py-2.5 disabled:opacity-60">
           {busy ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { PlatformBadge } from "../components/PlatformBadge";
+import { toastFromError } from "../lib/toast";
 
 type DashData = {
   stats: {
@@ -54,7 +55,9 @@ export function DashboardPage() {
         const res = await api<DashData>("/api/dashboard");
         setData(res);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load dashboard");
+        const msg = err instanceof Error ? err.message : "Failed to load dashboard";
+        setError(msg);
+        toastFromError(err, "Failed to load dashboard");
       } finally {
         setLoading(false);
       }

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { PlatformBadge } from "../components/PlatformBadge";
 import { PlatformFilter } from "../components/PlatformFilter";
+import { toastFromError, toastSuccess } from "../lib/toast";
 
 type AgentSettings = {
   enabled?: boolean;
@@ -40,12 +41,8 @@ export function AgentPage() {
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-
   async function load() {
     setLoading(true);
-    setError("");
     try {
       const data = await api<{ agent: AgentSettings; runs: AgentRun[] }>("/api/agent");
       setAgent({
@@ -60,7 +57,7 @@ export function AgentPage() {
       });
       setRuns(data.runs || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load agent");
+      toastFromError(err, "Failed to load agent");
     } finally {
       setLoading(false);
     }
@@ -70,19 +67,19 @@ export function AgentPage() {
     void load();
   }, []);
 
-  async function save() {
+  async function save(showToast = true): Promise<boolean> {
     setBusy(true);
-    setMessage("");
-    setError("");
     try {
       const data = await api<{ agent: AgentSettings }>("/api/agent", {
         method: "PUT",
         body: JSON.stringify(agent),
       });
       setAgent({ ...agent, ...data.agent });
-      setMessage("Agent settings saved");
+      if (showToast) toastSuccess("Agent settings saved");
+      return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      toastFromError(err, "Save failed");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -90,15 +87,16 @@ export function AgentPage() {
 
   async function runNow() {
     setBusy(true);
-    setMessage("");
-    setError("");
     try {
-      await save();
-      const data = await api<{ summary: string }>("/api/agent/run", { method: "POST" });
-      setMessage(data.summary || "Agent run complete");
+      const saved = await save(false);
+      if (!saved) return;
+      const data = await api<{ summary: string }>("/api/agent/run", {
+        method: "POST",
+      });
+      toastSuccess("Agent run complete", data.summary || undefined);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Agent run failed");
+      toastFromError(err, "Agent run failed");
     } finally {
       setBusy(false);
     }
@@ -211,9 +209,9 @@ export function AgentPage() {
         </div>
       </section>
 
-      {(agent.lastRunSummary || message) && (
+      {agent.lastRunSummary && (
         <div className="saa-card border-teal-700/20 bg-teal-50/60 px-4 py-3 text-sm text-teal-900">
-          {message || agent.lastRunSummary}
+          {agent.lastRunSummary}
           {agent.lastRunAt && (
             <span className="ml-2 text-teal-900/55">
               · last run {new Date(agent.lastRunAt).toLocaleString()}
@@ -221,7 +219,6 @@ export function AgentPage() {
           )}
         </div>
       )}
-      {error && <p className="text-sm text-red-700">{error}</p>}
 
       <section className="space-y-3">
         <h2 className="font-display text-xl text-teal-950">Recent runs</h2>

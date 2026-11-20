@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
 import { PublicLayout } from "./components/PublicLayout";
@@ -33,6 +34,16 @@ function Protected({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{
+          classNames: {
+            toast: "font-sans",
+          },
+        }}
+      />
       <Routes>
         <Route element={<PublicLayout />}>
           <Route index element={<LandingPage />} />
