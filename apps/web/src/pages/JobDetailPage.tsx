@@ -211,15 +211,17 @@ export function JobDetailPage() {
         ← Back to jobs
       </Link>
 
-      <div className="rounded-2xl border border-teal-900/10 bg-white/80 p-6">
+      <div className="saa-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="mb-2">
               <PlatformBadge source={job.source} />
             </div>
-            <h1 className="font-display text-3xl text-teal-950">{job.title}</h1>
-            <p className="mt-1 text-teal-950/70">
-              {job.company} · {job.location || "Remote"}
+            <h1 className="font-display text-3xl text-teal-950 md:text-[2rem]">{job.title}</h1>
+            <p className="mt-1 text-teal-950/65">
+              {job.company}
+              <span className="mx-1.5 text-teal-900/25">·</span>
+              {job.location || "Remote"}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -268,7 +270,7 @@ export function JobDetailPage() {
             type="button"
             disabled={busy}
             onClick={() => void tailor()}
-            className="rounded-lg bg-teal-800 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-900 disabled:opacity-60"
+            className="saa-btn saa-btn-primary disabled:opacity-60"
           >
             {busy ? "Working…" : tailored ? "1. Re-match CV" : "1. Generate matched CV"}
           </button>
@@ -276,33 +278,33 @@ export function JobDetailPage() {
             type="button"
             disabled={busy || !tailored}
             onClick={() => void downloadPdf()}
-            className="rounded-lg border border-teal-900/15 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-40"
+            className="saa-btn saa-btn-secondary disabled:opacity-40"
           >
-            2. Download matched PDF
+            2. Download PDF
           </button>
           <button
             type="button"
             disabled={busy}
             onClick={() => void prepareAndApply()}
-            className="rounded-lg border border-amber-700/30 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-950 disabled:opacity-60"
+            className="saa-btn border border-amber-700/25 bg-amber-50 text-amber-950 disabled:opacity-60"
           >
-            {busy ? "Preparing…" : "Match → PDF → Open apply"}
+            {busy ? "Preparing…" : "Match → PDF → Open"}
           </button>
           <button
             type="button"
             disabled={busy || !tailored}
             onClick={() => void markApplied()}
-            className="rounded-lg border border-teal-900/15 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-40"
+            className="saa-btn saa-btn-ghost disabled:opacity-40"
           >
-            {step3Done ? "Marked applied" : "3. Mark as applied"}
+            {step3Done ? "Marked applied" : "3. Mark applied"}
           </button>
           <button
             type="button"
             disabled={busy || !tailored}
             onClick={() => void applyAssist()}
-            className="rounded-lg bg-teal-950 px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:opacity-40"
+            className="saa-btn bg-teal-950 text-white hover:bg-black disabled:opacity-40"
           >
-            {busy ? "Assist running…" : "Apply Assist (auto-fill + screenshot)"}
+            {busy ? "Assist running…" : "Apply Assist"}
           </button>
         </div>
         <p className="mt-2 text-xs text-teal-950/55">

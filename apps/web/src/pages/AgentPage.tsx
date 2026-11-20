@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { PlatformBadge } from "../components/PlatformBadge";
+import { PlatformFilter } from "../components/PlatformFilter";
 
 type AgentSettings = {
   enabled?: boolean;
@@ -25,8 +26,6 @@ type AgentRun = {
   createdAt?: string;
   jobIds?: Array<{ _id: string; title?: string; company?: string; source?: string }>;
 };
-
-const PLATFORMS = ["remoteok", "remotive", "arbeitnow", "jobicy", "adzuna"];
 
 export function AgentPage() {
   const [agent, setAgent] = useState<AgentSettings>({
@@ -103,14 +102,6 @@ export function AgentPage() {
     } finally {
       setBusy(false);
     }
-  }
-
-  function toggleSource(source: string) {
-    const current = agent.sources || [];
-    const next = current.includes(source)
-      ? current.filter((s) => s !== source)
-      : [...current, source];
-    setAgent({ ...agent, sources: next });
   }
 
   if (loading) return <p className="text-teal-950/55">Loading agent…</p>;
@@ -212,24 +203,11 @@ export function AgentPage() {
         </label>
 
         <div className="md:col-span-2">
-          <p className="mb-2 text-sm font-medium">Platforms (empty = all)</p>
-          <div className="flex flex-wrap gap-2">
-            {PLATFORMS.map((source) => {
-              const active = (agent.sources || []).includes(source);
-              return (
-                <button
-                  key={source}
-                  type="button"
-                  onClick={() => toggleSource(source)}
-                  className={`rounded-md ${
-                    active ? "ring-2 ring-teal-700/50 ring-offset-1" : "opacity-45"
-                  }`}
-                >
-                  <PlatformBadge source={source} size="sm" />
-                </button>
-              );
-            })}
-          </div>
+          <PlatformFilter
+            label="Hunt platforms"
+            selected={agent.sources || []}
+            onChange={(sources) => setAgent({ ...agent, sources })}
+          />
         </div>
       </section>
 

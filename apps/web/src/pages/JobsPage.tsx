@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { PlatformBadge } from "../components/PlatformBadge";
+import { PlatformFilter } from "../components/PlatformFilter";
 import type { Job } from "../types";
 
 type SyncSource = {
@@ -10,8 +11,6 @@ type SyncSource = {
   skipped?: boolean;
   error?: string;
 };
-
-const ALL_PLATFORMS = ["remoteok", "remotive", "arbeitnow", "jobicy", "adzuna"] as const;
 
 function jobsListPath(query: string, sources: string[]) {
   const params = new URLSearchParams();
@@ -77,13 +76,6 @@ export function JobsPage() {
     setSelectedSources(sources);
     syncUrl(trimmed, sources);
     void loadJobs(trimmed, sources);
-  }
-
-  function toggleSource(source: string) {
-    const next = selectedSources.includes(source)
-      ? selectedSources.filter((s) => s !== source)
-      : [...selectedSources, source];
-    applyFilters(q, next);
   }
 
   async function syncJobs() {
@@ -165,32 +157,12 @@ export function JobsPage() {
           </div>
         </form>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-teal-900/8 pt-3">
-          <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-teal-950/45">
-            Platforms
-          </span>
-          {ALL_PLATFORMS.map((source) => {
-            const active = selectedSources.includes(source);
-            return (
-              <button
-                key={source}
-                type="button"
-                onClick={() => toggleSource(source)}
-                className={`rounded-md transition ${
-                  active ? "scale-[1.02] ring-2 ring-teal-700/50 ring-offset-1" : "opacity-50 hover:opacity-90"
-                }`}
-              >
-                <PlatformBadge source={source} size="sm" />
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => applyFilters(q, [])}
-            className="ml-auto text-xs font-semibold text-teal-800 hover:underline"
-          >
-            All
-          </button>
+        <div className="mt-3 border-t border-teal-900/8 pt-3">
+          <PlatformFilter
+            dense
+            selected={selectedSources}
+            onChange={(next) => applyFilters(q, next)}
+          />
         </div>
       </div>
 

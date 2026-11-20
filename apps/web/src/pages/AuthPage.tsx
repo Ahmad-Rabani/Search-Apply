@@ -28,7 +28,8 @@ export function AuthPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-10">
+    <div className="relative mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-10">
+      <div className="pointer-events-none absolute inset-x-0 top-16 -z-10 mx-auto h-40 max-w-md rounded-full bg-teal-700/10 blur-3xl" />
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-800/70">
         Personal job agent
       </p>
@@ -38,14 +39,14 @@ export function AuthPage() {
       </p>
 
       <form onSubmit={onSubmit} className="saa-card mt-8 space-y-4 p-6">
-        <div className="flex gap-2 rounded-lg bg-teal-900/5 p-1">
+        <div className="flex gap-1 rounded-xl bg-teal-950/[0.04] p-1">
           {(["register", "login"] as const).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setMode(m)}
-              className={`flex-1 rounded-md py-2 text-sm font-semibold capitalize ${
-                mode === m ? "bg-teal-800 text-white" : "text-teal-950/70"
+              className={`flex-1 rounded-lg py-2 text-sm font-semibold capitalize transition ${
+                mode === m ? "bg-teal-900 text-white shadow-sm" : "text-teal-950/60"
               }`}
             >
               {m}
@@ -55,9 +56,9 @@ export function AuthPage() {
 
         {mode === "register" && (
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Name</span>
+            <span className="mb-1 block font-medium text-teal-950/70">Name</span>
             <input
-              className="w-full rounded-lg border border-teal-900/15 bg-white px-3 py-2 outline-none focus:border-teal-700"
+              className="saa-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -66,10 +67,10 @@ export function AuthPage() {
         )}
 
         <label className="block text-sm">
-          <span className="mb-1 block font-medium">Email</span>
+          <span className="mb-1 block font-medium text-teal-950/70">Email</span>
           <input
             type="email"
-            className="w-full rounded-lg border border-teal-900/15 bg-white px-3 py-2 outline-none focus:border-teal-700"
+            className="saa-input"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -77,11 +78,11 @@ export function AuthPage() {
         </label>
 
         <label className="block text-sm">
-          <span className="mb-1 block font-medium">Password</span>
+          <span className="mb-1 block font-medium text-teal-950/70">Password</span>
           <input
             type="password"
             minLength={6}
-            className="w-full rounded-lg border border-teal-900/15 bg-white px-3 py-2 outline-none focus:border-teal-700"
+            className="saa-input"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -90,11 +91,7 @@ export function AuthPage() {
 
         {error && <p className="text-sm text-red-700">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-lg bg-teal-800 py-2.5 font-semibold text-white hover:bg-teal-900 disabled:opacity-60"
-        >
+        <button type="submit" disabled={busy} className="saa-btn saa-btn-primary w-full py-2.5 disabled:opacity-60">
           {busy ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
         </button>
       </form>
