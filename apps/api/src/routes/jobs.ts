@@ -6,7 +6,7 @@ import { Profile } from "../models/Profile.js";
 import { User } from "../models/User.js";
 import { TailoredDoc } from "../models/TailoredDoc.js";
 import { Application } from "../models/Application.js";
-import { syncRemoteOkJobs } from "../services/remoteok.js";
+import { syncAllJobSources } from "../services/jobSync.js";
 import { scoreJob } from "../services/scoring.js";
 import { tailorCvForJob } from "../services/claude.js";
 import { htmlToPdf } from "../services/pdf.js";
@@ -15,7 +15,7 @@ const router = Router();
 
 router.post("/sync", requireAuth, async (_req, res) => {
   try {
-    const result = await syncRemoteOkJobs();
+    const result = await syncAllJobSources();
     return res.json({ ok: true, ...result });
   } catch (err) {
     console.error(err);

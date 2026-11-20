@@ -1,4 +1,5 @@
 import { Job } from "../models/Job.js";
+import { stripHtml } from "../utils/html.js";
 
 type RemoteOkJob = {
   id: string | number;
@@ -23,59 +24,37 @@ export async function syncRemoteOkJobs(limit = 80) {
     },
   });
 
-  if (!res.ok) {
-    throw new Error(`RemoteOK fetch failed: ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`RemoteOK fetch failed: ${res.status}`);
 
   const data = (await res.json()) as RemoteOkJob[];
-  // First item is often metadata
   const jobs = data.filter((j) => j && j.id && j.position).slice(0, limit);
 
   let upserted = 0;
   for (const j of jobs) {
-    const externalId = String(j.id);
-    const tags = (j.tags || []).map(String);
     await Job.findOneAndUpdate(
-      { source: "remoteok", externalId },
+      { source: "remoteok", externalId: String(j.id) },
       {
         source: "remoteok",
-        externalId,
+        externalId: String(j.id),
         title: j.position || "Untitled",
         company: j.company || "Unknown",
         location: j.location || "Remote",
         url: j.url || `https://remoteok.com/remote-jobs/${j.slug || j.id}`,
         description: stripHtml(j.description || ""),
-        tags,
+        tags: (j.tags || []).map(String),
         salaryMin: j.salary_min,
         salaryMax: j.salary_max,
         remote: true,
-        postedAt: j.epoch ? new Date(j.epoch * 1000) : j.date ? new Date(j.date) : undefined,
+        postedAt: j.epoch
+          ? new Date(j.epoch * 1000)
+          : j.date
+            ? new Date(j.date)
+            : undefined,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
     upserted += 1;
   }
 
-  return { upserted, totalFetched: jobs.length };
-}
-
-function stripHtml(html: string) {
-  return html
-    .replace(/<\s*br\s*\/?>/gi, "\n")
-    .replace(/<\/\s*p\s*>/gi, "\n\n")
-    .replace(/<\/\s*div\s*>/gi, "\n")
-    .replace(/<\/\s*h[1-6]\s*>/gi, "\n\n")
-    .replace(/<\s*li[^>]*>/gi, "\n• ")
-    .replace(/<\/\s*(ul|ol)\s*>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  return { source: "remoteok", upserted, totalFetched: jobs.length };
 }

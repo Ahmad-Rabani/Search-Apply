@@ -16,4 +16,6 @@ export const config = {
   claudeModel: process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514",
   clientOrigin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
   storageDir: path.join(__dirname, "../storage"),
+  adzunaAppId: process.env.ADZUNA_APP_ID || "",
+  adzunaAppKey: process.env.ADZUNA_APP_KEY || "",
 };

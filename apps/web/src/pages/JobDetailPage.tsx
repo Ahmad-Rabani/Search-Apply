@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, getToken } from "../api/client";
 import { JobDescription } from "../components/JobDescription";
+import { PlatformBadge } from "../components/PlatformBadge";
 import type { Application, Job, TailoredDoc } from "../types";
 
 function scoreTone(score: number) {
@@ -176,9 +177,12 @@ export function JobDetailPage() {
       <div className="rounded-2xl border border-teal-900/10 bg-white/80 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
+            <div className="mb-2">
+              <PlatformBadge source={job.source} />
+            </div>
             <h1 className="font-display text-3xl text-teal-950">{job.title}</h1>
             <p className="mt-1 text-teal-950/70">
-              {job.company} · {job.location || "Remote"} · {job.source}
+              {job.company} · {job.location || "Remote"}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

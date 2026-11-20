@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { PlatformBadge } from "../components/PlatformBadge";
 import type { Job } from "../types";
+
+type SyncSource = {
+  source: string;
+  upserted: number;
+  skipped?: boolean;
+  error?: string;
+  reason?: string;
+};
 
 export function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -32,8 +41,16 @@ export function JobsPage() {
     setMessage("");
     setError("");
     try {
-      const data = await api<{ upserted: number }>("/api/jobs/sync", { method: "POST" });
-      setMessage(`Synced ${data.upserted} jobs from RemoteOK`);
+      const data = await api<{ upserted: number; sources: SyncSource[] }>(
+        "/api/jobs/sync",
+        { method: "POST" }
+      );
+      const parts = (data.sources || [])
+        .filter((s) => !s.skipped)
+        .map((s) =>
+          s.error ? `${s.source}: error` : `${s.source}: ${s.upserted}`
+        );
+      setMessage(`Synced ${data.upserted} jobs (${parts.join(" · ")})`);
       await loadJobs();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
@@ -52,7 +69,7 @@ export function JobsPage() {
         <div>
           <h1 className="font-display text-3xl text-teal-950">Job feed</h1>
           <p className="mt-1 text-teal-950/65">
-            Ranked by your preferences and skills. Sync RemoteOK, then tailor a CV per role.
+            Sync RemoteOK, Remotive, Arbeitnow, Jobicy (+ Adzuna if keys set), then tailor a CV.
           </p>
         </div>
         <button
@@ -61,8 +78,14 @@ export function JobsPage() {
           disabled={syncing}
           className="rounded-lg bg-teal-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-900 disabled:opacity-60"
         >
-          {syncing ? "Syncing…" : "Sync RemoteOK"}
+          {syncing ? "Syncing boards…" : "Sync all boards"}
         </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {["remoteok", "remotive", "arbeitnow", "jobicy", "adzuna"].map((s) => (
+          <PlatformBadge key={s} source={s} size="sm" />
+        ))}
       </div>
 
       <form
@@ -98,8 +121,8 @@ export function JobsPage() {
           </p>
           <p className="mt-1 text-sm text-teal-950/60">
             {q.trim()
-              ? "Try fewer keywords (e.g. react) or Sync RemoteOK for fresher listings."
-              : "Click Sync RemoteOK to pull the latest remote listings."}
+              ? "Try fewer keywords (e.g. react) or Sync all boards."
+              : "Click Sync all boards to pull listings from multiple platforms."}
           </p>
         </div>
       ) : (
@@ -111,7 +134,8 @@ export function JobsPage() {
                 className="block rounded-2xl border border-teal-900/10 bg-white/75 p-4 transition hover:border-teal-700/40 hover:bg-white"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0 space-y-2">
+                    <PlatformBadge source={job.source} size="sm" />
                     <h2 className="text-lg font-semibold text-teal-950">{job.title}</h2>
                     <p className="text-sm text-teal-950/70">
                       {job.company} · {job.location || "Remote"}
