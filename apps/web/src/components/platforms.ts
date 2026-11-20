@@ -3,6 +3,9 @@ export const PLATFORM_KEYS = [
   "remotive",
   "arbeitnow",
   "jobicy",
+  "himalayas",
+  "weworkremotely",
+  "workingnomads",
   "adzuna",
 ] as const;
 
@@ -39,6 +42,27 @@ export const PLATFORM_META: Record<
     color: "#FFFFFF",
     icon: "J",
     hint: "Remote careers",
+  },
+  himalayas: {
+    label: "Himalayas",
+    bg: "#FF5A36",
+    color: "#FFFFFF",
+    icon: "H",
+    hint: "Remote job search",
+  },
+  weworkremotely: {
+    label: "We Work Remotely",
+    bg: "#1F2937",
+    color: "#F9FAFB",
+    icon: "W",
+    hint: "Programming + DevOps",
+  },
+  workingnomads: {
+    label: "Working Nomads",
+    bg: "#0E7490",
+    color: "#FFFFFF",
+    icon: "WN",
+    hint: "Nomad-friendly remote",
   },
   adzuna: {
     label: "Adzuna",

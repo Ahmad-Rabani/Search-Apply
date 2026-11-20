@@ -24,6 +24,21 @@ npm run dev:web
 
 Matched CVs now prioritize **required technologies** from the job description (skills section + summary), without inventing skills you don’t have.
 
+## Job boards
+
+Synced on **Jobs → Sync** (no key required unless noted):
+
+| Source | Notes |
+|--------|--------|
+| RemoteOK | Remote tech |
+| Remotive | Curated remote |
+| Arbeitnow | EU + remote |
+| Jobicy | Remote careers |
+| Himalayas | Remote search (software/frontend/react queries) |
+| We Work Remotely | Programming / DevOps / FE / BE RSS |
+| Working Nomads | Nomad-friendly remote (tech-filtered) |
+| Adzuna | Optional — needs `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` |
+
 ## Optional email
 
 Add SMTP vars to `apps/api/.env` (see `.env.example`). Agent setting **notifyEmail** sends run summaries when SMTP is configured.

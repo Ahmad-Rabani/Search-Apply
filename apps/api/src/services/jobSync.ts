@@ -1,8 +1,11 @@
 import { syncAdzunaJobs } from "./adzuna.js";
 import { syncArbeitnowJobs } from "./arbeitnow.js";
+import { syncHimalayasJobs } from "./himalayas.js";
 import { syncJobicyJobs } from "./jobicy.js";
 import { syncRemoteOkJobs } from "./remoteok.js";
 import { syncRemotiveJobs } from "./remotive.js";
+import { syncWeWorkRemotelyJobs } from "./weworkremotely.js";
+import { syncWorkingNomadsJobs } from "./workingnomads.js";
 
 type SyncResult = {
   source: string;
@@ -32,6 +35,9 @@ export async function syncAllJobSources() {
     safe("remotive", () => syncRemotiveJobs()),
     safe("arbeitnow", () => syncArbeitnowJobs()),
     safe("jobicy", () => syncJobicyJobs()),
+    safe("himalayas", () => syncHimalayasJobs()),
+    safe("weworkremotely", () => syncWeWorkRemotelyJobs()),
+    safe("workingnomads", () => syncWorkingNomadsJobs()),
     safe("adzuna", () => syncAdzunaJobs()),
   ]);
 
