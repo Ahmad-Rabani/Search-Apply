@@ -1,14 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { api, getToken } from "../api/client";
 import { JobDescription } from "../components/JobDescription";
 import { PlatformBadge } from "../components/PlatformBadge";
 import type { Application, InterviewPrep, Job, TailoredDoc } from "../types";
 
+type WorkKind = "idle" | "match" | "pdf" | "apply" | "assist" | "interview";
+
+const MATCH_STEPS = [
+  { at: 8, label: "Reading the job description…" },
+  { at: 28, label: "Matching your skills to required tech…" },
+  { at: 52, label: "Rewriting summary and experience bullets…" },
+  { at: 74, label: "Building your ATS-ready CV…" },
+  { at: 90, label: "Finishing cover letter and preview…" },
+];
+
 function scoreTone(score: number) {
   if (score >= 75) return "bg-teal-800 text-white";
   if (score >= 50) return "bg-amber-100 text-amber-950";
   return "bg-stone-200 text-stone-800";
+}
+
+function matchStepLabel(progress: number) {
+  let label = MATCH_STEPS[0].label;
+  for (const step of MATCH_STEPS) {
+    if (progress >= step.at) label = step.label;
+  }
+  return label;
 }
 
 export function JobDetailPage() {
@@ -21,9 +39,38 @@ export function JobDetailPage() {
   const [application, setApplication] = useState<Application | null>(null);
   const [interviewPrep, setInterviewPrep] = useState<InterviewPrep | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [work, setWork] = useState<WorkKind>("idle");
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [hint, setHint] = useState("");
+  const [showMore, setShowMore] = useState(false);
+  const progressTimer = useRef<number | null>(null);
+
+  const busy = work !== "idle";
+
+  function clearProgressTimer() {
+    if (progressTimer.current != null) {
+      window.clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    }
+  }
+
+  function startMatchProgress() {
+    clearProgressTimer();
+    setProgress(4);
+    progressTimer.current = window.setInterval(() => {
+      setProgress((p) => {
+        if (p >= 92) return p;
+        const bump = p < 40 ? 3.2 : p < 70 ? 2.1 : 1.1;
+        return Math.min(92, p + bump);
+      });
+    }, 450);
+  }
+
+  function finishProgress() {
+    clearProgressTimer();
+    setProgress(100);
+  }
 
   async function load() {
     if (!id) return;
@@ -49,129 +96,119 @@ export function JobDetailPage() {
 
   useEffect(() => {
     void load();
+    return () => clearProgressTimer();
   }, [id]);
+
+  async function downloadPdfBlob() {
+    if (!id) throw new Error("Missing job");
+    const res = await fetch(`/api/jobs/${id}/pdf`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "PDF failed");
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cv-${job?.company || "job"}-matched.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function tailor() {
     if (!id) return;
-    setBusy(true);
+    setWork("match");
     setError("");
     setHint("");
+    startMatchProgress();
     try {
       const data = await api<{ tailored: TailoredDoc }>(`/api/jobs/${id}/tailor`, {
         method: "POST",
       });
+      finishProgress();
       setTailored(data.tailored);
-      setHint(
-        "CV rewritten for this JD (headline, summary, skills, bullets). Check preview — then download PDF."
-      );
+      setHint("Matched CV ready. Review the preview, then download and apply.");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Tailoring failed");
+      clearProgressTimer();
+      setProgress(0);
+      setError(err instanceof Error ? err.message : "Matching failed");
     } finally {
-      setBusy(false);
+      setTimeout(() => {
+        setWork("idle");
+        setProgress(0);
+      }, 500);
     }
   }
 
-  async function downloadPdf() {
-    if (!id) return;
+  async function downloadAndOpen() {
+    if (!id || !job) return;
     if (!tailored) {
-      setError("Pehle tailored CV generate karo — phir PDF download hogi.");
+      setError("Match your CV first, then download and apply.");
       return;
     }
-    setBusy(true);
+    setWork("apply");
     setError("");
     try {
-      const res = await fetch(`/api/jobs/${id}/pdf`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "PDF failed");
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `cv-${job?.company || "job"}-matched.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setHint("PDF downloaded. Ab apply page kholo aur yehi matched CV upload/submit karo.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "PDF failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function prepareAndApply() {
-    if (!id || !job) return;
-    setBusy(true);
-    setError("");
-    setHint("");
-    try {
-      let doc = tailored;
-      if (!doc) {
-        const data = await api<{ tailored: TailoredDoc }>(`/api/jobs/${id}/tailor`, {
-          method: "POST",
-        });
-        doc = data.tailored;
-        setTailored(doc);
-      }
-
-      const res = await fetch(`/api/jobs/${id}/pdf`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `cv-${job.company || "job"}-matched.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-
+      await downloadPdfBlob();
       window.open(job.url, "_blank", "noopener,noreferrer");
-
       const appData = await api<{ application: Application }>("/api/applications", {
         method: "POST",
         body: JSON.stringify({ jobId: id, status: "applied" }),
       });
       setApplication(appData.application);
-      setHint(
-        "Matched CV PDF download + apply page open. Form pe yehi PDF use karo, phir tracker mein status update rakho."
-      );
+      setHint("PDF downloaded and apply page opened. Upload this PDF on the form.");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Apply prep failed");
+      setError(err instanceof Error ? err.message : "Could not prepare apply");
     } finally {
-      setBusy(false);
+      setWork("idle");
+    }
+  }
+
+  async function downloadOnly() {
+    if (!tailored) {
+      setError("Match your CV first to download the PDF.");
+      return;
+    }
+    setWork("pdf");
+    setError("");
+    try {
+      await downloadPdfBlob();
+      setHint("PDF downloaded. Use this file on the employer’s apply form.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "PDF failed");
+    } finally {
+      setWork("idle");
     }
   }
 
   async function markApplied() {
     if (!id) return;
     if (!tailored) {
-      setError("Pehle Step 1: Generate matched CV — bina matching ke apply mat mark karo.");
+      setError("Match your CV before marking this job as applied.");
       return;
     }
-    setBusy(true);
+    setWork("apply");
     try {
       const data = await api<{ application: Application }>("/api/applications", {
         method: "POST",
         body: JSON.stringify({ jobId: id, status: "applied" }),
       });
       setApplication(data.application);
+      setHint("Marked as applied in your tracker.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
     } finally {
-      setBusy(false);
+      setWork("idle");
     }
   }
 
   async function makeInterviewPrep() {
     if (!id) return;
-    setBusy(true);
+    setWork("interview");
     setError("");
     setHint("");
     try {
@@ -180,25 +217,25 @@ export function JobDetailPage() {
         { method: "POST" }
       );
       setInterviewPrep(data.interviewPrep);
-      setHint("Interview prep ready — company brief, likely questions, and stories.");
+      setHint("Interview prep ready below.");
+      setShowMore(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Interview prep failed");
     } finally {
-      setBusy(false);
+      setWork("idle");
     }
   }
 
   async function applyAssist() {
     if (!id) return;
     if (!tailored) {
-      setError("Pehle matched CV generate karo, phir Apply Assist use karo.");
+      setError("Match your CV first, then use Apply Assist.");
       return;
     }
-    setBusy(true);
+    setWork("assist");
     setError("");
-    setHint("Apply Assist browser khol raha hai — fields auto-fill hongi, submit manually karo.");
+    setHint("Opening the apply page and filling common fields…");
     try {
-      // Ensure PDF is ready for upload on the form
       await fetch(`/api/jobs/${id}/pdf`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       }).catch(() => undefined);
@@ -212,22 +249,23 @@ export function JobDetailPage() {
       setHint(
         `${data.assist.message} Filled: ${
           data.assist.filledFields?.join(", ") || "none detected"
-        }.`
+        }. Confirm submit yourself.`
       );
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Apply assist failed");
     } finally {
-      setBusy(false);
+      setWork("idle");
     }
   }
 
   if (loading) return <p className="text-teal-950/60">Loading…</p>;
   if (!job) return <p className="text-red-700">{error || "Job not found"}</p>;
 
-  const step1Done = Boolean(tailored);
-  const step3Done = application?.status === "applied";
+  const matched = Boolean(tailored);
+  const applied = application?.status === "applied";
   const matchScore = tailored?.matchScore ?? 0;
+  const matching = work === "match";
 
   return (
     <div className="space-y-6">
@@ -241,7 +279,9 @@ export function JobDetailPage() {
             <div className="mb-2">
               <PlatformBadge source={job.source} />
             </div>
-            <h1 className="font-display text-3xl text-teal-950 md:text-[2rem]">{job.title}</h1>
+            <h1 className="font-display text-3xl text-teal-950 md:text-[2rem]">
+              {job.title}
+            </h1>
             <p className="mt-1 text-teal-950/65">
               {job.company}
               <span className="mx-1.5 text-teal-900/25">·</span>
@@ -250,152 +290,190 @@ export function JobDetailPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="rounded-md bg-teal-900/8 px-3 py-1.5 text-sm font-semibold text-teal-900">
-              {job.relevanceScore ?? 0}% feed match
+              {job.relevanceScore ?? 0}% feed
             </span>
-            {tailored && (
+            {matched && (
               <span
                 className={`rounded-md px-3 py-1.5 text-sm font-semibold ${scoreTone(matchScore)}`}
               >
-                {matchScore}% CV match
+                {matchScore}% CV
+              </span>
+            )}
+            {applied && (
+              <span className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-950">
+                Applied
               </span>
             )}
           </div>
         </div>
 
-        <ol className="mt-6 grid gap-3 sm:grid-cols-3">
-          <li
-            className={`rounded-xl border p-3 text-sm ${
-              step1Done ? "border-teal-700/40 bg-teal-50" : "border-teal-900/10 bg-white"
-            }`}
-          >
-            <p className="font-semibold text-teal-950">1. Match CV</p>
-            <p className="mt-1 text-teal-950/65">Job JD ke hisaab se ATS CV + cover letter</p>
-          </li>
-          <li
-            className={`rounded-xl border p-3 text-sm ${
-              step1Done ? "border-teal-700/40 bg-teal-50" : "border-teal-900/10 bg-white"
-            }`}
-          >
-            <p className="font-semibold text-teal-950">2. Download PDF</p>
-            <p className="mt-1 text-teal-950/65">Matched CV save karo apply form ke liye</p>
-          </li>
-          <li
-            className={`rounded-xl border p-3 text-sm ${
-              step3Done ? "border-amber-700/40 bg-amber-50" : "border-teal-900/10 bg-white"
-            }`}
-          >
-            <p className="font-semibold text-teal-950">3. Apply</p>
-            <p className="mt-1 text-teal-950/65">Apply page kholo + tracker mein mark</p>
-          </li>
-        </ol>
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void tailor()}
-            className="saa-btn saa-btn-primary disabled:opacity-60"
-          >
-            {busy ? "Working…" : tailored ? "1. Re-match CV" : "1. Generate matched CV"}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !tailored}
-            onClick={() => void downloadPdf()}
-            className="saa-btn saa-btn-secondary disabled:opacity-40"
-          >
-            2. Download PDF
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void prepareAndApply()}
-            className="saa-btn border border-amber-700/25 bg-amber-50 text-amber-950 disabled:opacity-60"
-          >
-            {busy ? "Preparing…" : "Match → PDF → Open"}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !tailored}
-            onClick={() => void markApplied()}
-            className="saa-btn saa-btn-ghost disabled:opacity-40"
-          >
-            {step3Done ? "Marked applied" : "3. Mark applied"}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !tailored}
-            onClick={() => void applyAssist()}
-            className="saa-btn bg-teal-950 text-white hover:bg-black disabled:opacity-40"
-          >
-            {busy ? "Assist running…" : "Apply Assist"}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void makeInterviewPrep()}
-            className="saa-btn border border-teal-800/20 bg-white text-teal-950 disabled:opacity-60"
-          >
-            {busy
-              ? "Preparing…"
-              : interviewPrep
-                ? "Refresh interview prep"
-                : "Interview prep"}
-          </button>
+        {/* Simple progress steps */}
+        <div className="mt-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-teal-950/45">
+          <span className={matched ? "text-teal-800" : "text-teal-950"}>1. Match</span>
+          <span className="h-px flex-1 bg-teal-900/10" />
+          <span className={matched ? "text-teal-800" : ""}>2. Download</span>
+          <span className="h-px flex-1 bg-teal-900/10" />
+          <span className={applied ? "text-amber-800" : ""}>3. Apply</span>
         </div>
-        <p className="mt-2 text-xs text-teal-950/55">
-          Apply Assist opens the job page, fills common fields from your profile, captures a
-          screenshot, and does not auto-submit (you confirm manually).
-        </p>
 
-        {hint && <p className="mt-3 text-sm text-teal-800">{hint}</p>}
-        {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
-        {!tailored && (
-          <p className="mt-3 text-sm text-amber-900/80">
-            Apply se pehle matched CV zaroori hai — pehle Profile pe base CV upload/save karo, phir
-            yahan Step 1 chalao.
+        {/* Matching progress panel */}
+        {matching && (
+          <div className="mt-5 rounded-2xl border border-teal-800/15 bg-teal-50/80 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-teal-950">
+                Matching your CV to this job
+              </p>
+              <p className="font-display text-lg text-teal-900">{Math.round(progress)}%</p>
+            </div>
+            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-teal-900/10">
+              <div
+                className="h-full rounded-full bg-teal-700 transition-[width] duration-300 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="mt-3 text-sm text-teal-950/70">{matchStepLabel(progress)}</p>
+            <p className="mt-1 text-xs text-teal-950/45">
+              Usually takes 15–40 seconds. Keep this tab open.
+            </p>
+          </div>
+        )}
+
+        {/* Primary actions — max 2 clicks */}
+        {!matching && (
+          <div className="mt-5 space-y-3">
+            {!matched ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void tailor()}
+                className="saa-btn saa-btn-primary w-full py-3 text-base disabled:opacity-60 sm:w-auto sm:min-w-[220px]"
+              >
+                Match CV for this job
+              </button>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void downloadAndOpen()}
+                  className="saa-btn saa-btn-primary py-2.5 disabled:opacity-60"
+                >
+                  {work === "apply" ? "Opening apply…" : "Download PDF & apply"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void downloadOnly()}
+                  className="saa-btn saa-btn-secondary disabled:opacity-60"
+                >
+                  {work === "pdf" ? "Downloading…" : "PDF only"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void tailor()}
+                  className="saa-btn saa-btn-ghost disabled:opacity-60"
+                >
+                  Rematch
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="text-sm font-medium text-teal-800 hover:underline"
+              onClick={() => setShowMore((v) => !v)}
+            >
+              {showMore ? "Hide more options" : "More options"}
+            </button>
+
+            {showMore && (
+              <div className="flex flex-wrap gap-2 rounded-xl border border-teal-900/10 bg-white/70 p-3">
+                <button
+                  type="button"
+                  disabled={busy || !matched}
+                  onClick={() => void applyAssist()}
+                  className="saa-btn bg-teal-950 text-white hover:bg-black disabled:opacity-40"
+                >
+                  {work === "assist" ? "Assist running…" : "Apply Assist"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || !matched || applied}
+                  onClick={() => void markApplied()}
+                  className="saa-btn saa-btn-ghost disabled:opacity-40"
+                >
+                  {applied ? "Already marked" : "Mark applied only"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void makeInterviewPrep()}
+                  className="saa-btn saa-btn-secondary disabled:opacity-60"
+                >
+                  {work === "interview"
+                    ? "Preparing…"
+                    : interviewPrep
+                      ? "Refresh interview prep"
+                      : "Interview prep"}
+                </button>
+                <p className="basis-full text-xs text-teal-950/50">
+                  Apply Assist fills common fields and never auto-submits — you confirm.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {hint && !matching && (
+          <p className="mt-4 text-sm text-teal-800">{hint}</p>
+        )}
+        {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
+        {!matched && !matching && (
+          <p className="mt-4 rounded-xl border border-amber-700/20 bg-amber-50/80 px-3 py-2.5 text-sm text-amber-950">
+            A matched CV is required before you apply. Save your base profile on{" "}
+            <Link to="/profile" className="font-semibold underline">
+              Profile
+            </Link>
+            , then tap <strong>Match CV for this job</strong>.
           </p>
         )}
       </div>
 
-      {tailored && (
+      {matched && (
         <section className="overflow-hidden rounded-2xl border border-teal-900/10 bg-white/90">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-teal-900/10 bg-teal-950 px-5 py-4 text-white">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-100/70">
-                Matched CV result
+                Matched CV
               </p>
-              <h2 className="font-display text-2xl">Tailored for this role</h2>
+              <h2 className="font-display text-2xl">Ready for this role</h2>
             </div>
             <div className="text-right">
               <p className="text-xs uppercase tracking-wide text-teal-100/70">
                 ATS coverage
               </p>
               <p className="font-display text-4xl font-semibold">{matchScore}%</p>
-              <p className="mt-1 text-[11px] text-teal-100/60">
-                After rewrite vs this JD
-              </p>
             </div>
           </div>
 
           <div className="grid gap-4 p-5 lg:grid-cols-2">
             <div className="rounded-xl border border-teal-900/10 bg-teal-50/50 p-4">
-              <h3 className="font-semibold text-teal-950">What changed for this role</h3>
+              <h3 className="font-semibold text-teal-950">What changed</h3>
               <p className="mt-2 text-sm leading-relaxed text-teal-950/75">
                 {tailored.atsNotes}
               </p>
 
               {matchScore < 40 && (
                 <p className="mt-3 rounded-lg border border-amber-700/25 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                  Low overlap with this JD. CV is rewritten toward the role, but score
-                  stays low until your Profile includes their stack. Add the gap skills
-                  below (if you have them) → save Profile → <strong>Re-match CV</strong>.
+                  Low overlap with this JD. Add missing skills on Profile (if you have
+                  them), save, then Rematch.
                 </p>
               )}
 
               <div className="mt-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-teal-950/50">
-                  JD tech placed on this CV
+                  Tech placed on this CV
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {tailored.keywords.length ? (
@@ -443,8 +521,10 @@ export function JobDetailPage() {
 
             <div className="rounded-xl border border-teal-900/10 bg-white p-4 lg:col-span-2">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold text-teal-950">Matched CV preview</h3>
-                <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${scoreTone(matchScore)}`}>
+                <h3 className="font-semibold text-teal-950">CV preview</h3>
+                <span
+                  className={`rounded-md px-2.5 py-1 text-xs font-semibold ${scoreTone(matchScore)}`}
+                >
                   Score {matchScore}%
                 </span>
               </div>
@@ -463,9 +543,6 @@ export function JobDetailPage() {
       {interviewPrep && (
         <section className="overflow-hidden rounded-2xl border border-teal-900/10 bg-white/90">
           <div className="border-b border-teal-900/10 bg-teal-900 px-5 py-4 text-white">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-100/70">
-              Phase 5
-            </p>
             <h2 className="font-display text-2xl">Interview prep</h2>
           </div>
 
@@ -495,9 +572,7 @@ export function JobDetailPage() {
                 {interviewPrep.likelyQuestions.map((q) => (
                   <li key={q.question} className="text-sm">
                     <p className="font-medium text-teal-950">{q.question}</p>
-                    {q.tip && (
-                      <p className="mt-1 text-teal-950/65">Tip: {q.tip}</p>
-                    )}
+                    {q.tip && <p className="mt-1 text-teal-950/65">Tip: {q.tip}</p>}
                   </li>
                 ))}
               </ul>
