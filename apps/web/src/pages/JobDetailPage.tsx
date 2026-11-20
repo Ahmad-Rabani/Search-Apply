@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, getToken } from "../api/client";
+import { JobDescription } from "../components/JobDescription";
 import type { Application, Job, TailoredDoc } from "../types";
+
+function scoreTone(score: number) {
+  if (score >= 75) return "bg-teal-800 text-white";
+  if (score >= 50) return "bg-amber-100 text-amber-950";
+  return "bg-stone-200 text-stone-800";
+}
 
 export function JobDetailPage() {
   const { id } = useParams();
@@ -158,6 +165,7 @@ export function JobDetailPage() {
 
   const step1Done = Boolean(tailored);
   const step3Done = application?.status === "applied";
+  const matchScore = tailored?.matchScore ?? 0;
 
   return (
     <div className="space-y-6">
@@ -173,9 +181,18 @@ export function JobDetailPage() {
               {job.company} · {job.location || "Remote"} · {job.source}
             </p>
           </div>
-          <span className="rounded-md bg-teal-900/8 px-3 py-1.5 text-sm font-semibold text-teal-900">
-            {job.relevanceScore ?? 0}% feed match
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-md bg-teal-900/8 px-3 py-1.5 text-sm font-semibold text-teal-900">
+              {job.relevanceScore ?? 0}% feed match
+            </span>
+            {tailored && (
+              <span
+                className={`rounded-md px-3 py-1.5 text-sm font-semibold ${scoreTone(matchScore)}`}
+              >
+                {matchScore}% CV match
+              </span>
+            )}
+          </div>
         </div>
 
         <ol className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -251,61 +268,91 @@ export function JobDetailPage() {
       </div>
 
       {tailored && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <section className="rounded-2xl border border-teal-900/10 bg-white/80 p-5">
-            <h2 className="font-display text-xl">AI match</h2>
-            <p className="mt-2 text-3xl font-semibold text-teal-800">{tailored.matchScore}%</p>
-            <p className="mt-3 text-sm text-teal-950/70">{tailored.atsNotes}</p>
-            <div className="mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-teal-950/50">
-                Keywords
+        <section className="overflow-hidden rounded-2xl border border-teal-900/10 bg-white/90">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-teal-900/10 bg-teal-950 px-5 py-4 text-white">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-100/70">
+                Matched CV result
               </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {tailored.keywords.map((k) => (
-                  <span key={k} className="rounded bg-teal-900/5 px-2 py-0.5 text-xs">
-                    {k}
-                  </span>
-                ))}
-              </div>
+              <h2 className="font-display text-2xl">Tailored for this role</h2>
             </div>
-            {tailored.missingSkills.length > 0 && (
+            <div className="text-right">
+              <p className="text-xs uppercase tracking-wide text-teal-100/70">Match score</p>
+              <p className="font-display text-4xl font-semibold">{matchScore}%</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 p-5 lg:grid-cols-2">
+            <div className="rounded-xl border border-teal-900/10 bg-teal-50/50 p-4">
+              <h3 className="font-semibold text-teal-950">ATS notes</h3>
+              <p className="mt-2 text-sm leading-relaxed text-teal-950/75">{tailored.atsNotes}</p>
+
               <div className="mt-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/70">
-                  Gaps
+                <p className="text-xs font-semibold uppercase tracking-wide text-teal-950/50">
+                  Matched keywords
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {tailored.missingSkills.map((k) => (
-                    <span key={k} className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">
+                  {tailored.keywords.map((k) => (
+                    <span
+                      key={k}
+                      className="rounded bg-teal-900/8 px-2 py-0.5 text-xs font-medium text-teal-950"
+                    >
                       {k}
                     </span>
                   ))}
                 </div>
               </div>
-            )}
-          </section>
 
-          <section className="rounded-2xl border border-teal-900/10 bg-white/80 p-5">
-            <h2 className="font-display text-xl">Cover letter</h2>
-            <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-teal-950/80">
-              {tailored.coverLetter}
-            </pre>
-          </section>
+              {tailored.missingSkills.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/70">
+                    Gaps
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {tailored.missingSkills.map((k) => (
+                      <span
+                        key={k}
+                        className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900"
+                      >
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
-          <section className="rounded-2xl border border-teal-900/10 bg-white/80 p-5 lg:col-span-2">
-            <h2 className="font-display text-xl">Matched CV (preview)</h2>
-            <div
-              className="prose mt-4 max-w-none text-sm"
-              dangerouslySetInnerHTML={{ __html: tailored.cvHtml }}
-            />
-          </section>
-        </div>
+            <div className="rounded-xl border border-teal-900/10 bg-white p-4">
+              <h3 className="font-semibold text-teal-950">Cover letter</h3>
+              <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-teal-950/80">
+                {tailored.coverLetter}
+              </pre>
+            </div>
+
+            <div className="rounded-xl border border-teal-900/10 bg-white p-4 lg:col-span-2">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-teal-950">Matched CV preview</h3>
+                <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${scoreTone(matchScore)}`}>
+                  Score {matchScore}%
+                </span>
+              </div>
+              <div className="overflow-hidden rounded-lg border border-teal-900/10 bg-white shadow-sm">
+                <iframe
+                  title="Matched CV preview"
+                  className="h-[720px] w-full bg-white"
+                  srcDoc={tailored.cvHtml}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
       )}
 
-      <section className="rounded-2xl border border-teal-900/10 bg-white/70 p-5">
-        <h2 className="font-display text-xl">Job description</h2>
-        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-teal-950/75">
-          {job.description || "No description provided."}
-        </p>
+      <section className="rounded-2xl border border-teal-900/10 bg-white/80 p-5">
+        <h2 className="font-display text-xl text-teal-950">Job description</h2>
+        <div className="mt-4">
+          <JobDescription text={job.description || ""} />
+        </div>
       </section>
     </div>
   );
