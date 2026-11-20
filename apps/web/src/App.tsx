@@ -8,6 +8,7 @@ import { JobDetailPage } from "./pages/JobDetailPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { TrackerPage } from "./pages/TrackerPage";
 import { AgentPage } from "./pages/AgentPage";
+import { DashboardPage } from "./pages/DashboardPage";
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -35,7 +36,8 @@ export default function App() {
             </Protected>
           }
         >
-          <Route index element={<Navigate to="/jobs" replace />} />
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="jobs" element={<JobsPage />} />
           <Route path="jobs/:id" element={<JobDetailPage />} />
           <Route path="profile" element={<ProfilePage />} />

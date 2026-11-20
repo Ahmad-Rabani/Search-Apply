@@ -8,6 +8,7 @@ import { Job } from "../models/Job.js";
 import { Profile } from "../models/Profile.js";
 import { TailoredDoc } from "../models/TailoredDoc.js";
 import { runApplyAssist } from "../services/applyAssist.js";
+import { createNotification } from "../services/notify.js";
 
 const router = Router();
 
@@ -121,6 +122,16 @@ router.post("/:jobId/apply-assist", requireAuth, async (req, res) => {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
+
+    await createNotification({
+      userId: req.user!.userId,
+      type: "apply",
+      title: `Apply assist: ${job.title}`,
+      body: `Opened ${job.company}. Filled: ${
+        result.filledFields.join(", ") || "none"
+      }. Finish submit manually if needed.`,
+      href: `/jobs/${job._id}`,
+    });
 
     return res.json({
       ok: true,

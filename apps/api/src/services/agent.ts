@@ -6,6 +6,7 @@ import { TailoredDoc } from "../models/TailoredDoc.js";
 import { User } from "../models/User.js";
 import { tailorCvForJob } from "./claude.js";
 import { syncAllJobSources } from "./jobSync.js";
+import { createNotification } from "./notify.js";
 import { scoreJob } from "./scoring.js";
 
 export async function runAgentForUser(
@@ -120,6 +121,16 @@ export async function runAgentForUser(
     lastRunSummary: summary,
   };
   await user.save();
+
+  await createNotification({
+    userId,
+    type: "agent",
+    title: trigger === "schedule" ? "Daily agent run finished" : "Agent run finished",
+    body: summary,
+    href: "/tracker",
+    meta: { matched: scored.length, tailored: tailoredCount },
+    email: Boolean(agent.notifyEmail),
+  });
 
   return {
     run,

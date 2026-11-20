@@ -18,4 +18,9 @@ export const config = {
   storageDir: path.join(__dirname, "../storage"),
   adzunaAppId: process.env.ADZUNA_APP_ID || "",
   adzunaAppKey: process.env.ADZUNA_APP_KEY || "",
+  smtpHost: process.env.SMTP_HOST || "",
+  smtpPort: Number(process.env.SMTP_PORT || 587),
+  smtpUser: process.env.SMTP_USER || "",
+  smtpPass: process.env.SMTP_PASS || "",
+  smtpFrom: process.env.SMTP_FROM || "",
 };

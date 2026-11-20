@@ -8,6 +8,8 @@ import profileRoutes from "./routes/profile.js";
 import jobRoutes from "./routes/jobs.js";
 import applicationRoutes from "./routes/applications.js";
 import agentRoutes from "./routes/agent.js";
+import notificationRoutes from "./routes/notifications.js";
+import dashboardRoutes from "./routes/dashboard.js";
 import { startAgentScheduler } from "./services/scheduler.js";
 
 async function main() {
@@ -36,6 +38,7 @@ async function main() {
       geminiModel: config.geminiModel,
       hasGeminiKey: Boolean(config.geminiApiKey),
       hasAnthropicKey: Boolean(config.anthropicApiKey),
+      hasSmtp: Boolean(config.smtpHost && config.smtpUser && config.smtpPass),
     });
   });
 
@@ -44,6 +47,8 @@ async function main() {
   app.use("/api/jobs", jobRoutes);
   app.use("/api/applications", applicationRoutes);
   app.use("/api/agent", agentRoutes);
+  app.use("/api/notifications", notificationRoutes);
+  app.use("/api/dashboard", dashboardRoutes);
 
   app.use(
     (

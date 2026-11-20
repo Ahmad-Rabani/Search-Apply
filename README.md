@@ -1,13 +1,6 @@
 # Search & Apply
 
-AI-powered job hunting agent: multi-board sync, platform filters, ATS CV matching, Apply Assist, tracker, and scheduled Agent mode.
-
-## Stack
-
-- **Web:** React + Vite + Tailwind CSS
-- **API:** Node.js + Express + TypeScript + MongoDB
-- **AI:** Google Gemini (default)
-- **Browser assist:** Puppeteer
+AI-powered job hunting agent across discovery, CV matching, apply assist, scheduled agent mode, notifications, and dashboard analytics.
 
 ## Run
 
@@ -18,20 +11,16 @@ npm run dev:api
 npm run dev:web
 ```
 
-Windows tip: folder name `Search&Apply` breaks `.bin` shims — use `node …/tsx` / `node …/vite` scripts already in package.json.
+- Web: http://localhost:5173
+- API: http://localhost:4000/api/health
 
 ## Phases
 
-### Phase 1 — Discovery + CV match
-Profile upload, multi-board sync, search, tailored CV + PDF.
+1. **Discovery + CV match** — multi-board sync, search/platform filters, tailored CV/PDF  
+2. **Apply assist + tracker** — human-in-the-loop fill + screenshots + status notes  
+3. **Agent mode** — daily hunt, min score, auto-tailor for review  
+4. **Insights + alerts** — Dashboard, in-app notification bell, optional SMTP email on agent runs  
 
-### Phase 2 — Apply assist + tracker
-Human-in-the-loop Apply Assist, screenshots, tracker filters/notes.
+## Optional email
 
-### Phase 3 — Agent mode
-- Daily scheduled hunt (UTC hour)
-- Keep jobs above your min match score
-- Auto-tailor CVs into Tracker for review
-- Manual **Run agent now**
-
-Open **Agent** in the nav to configure.
+Add SMTP vars to `apps/api/.env` (see `.env.example`). Agent setting **notifyEmail** sends run summaries when SMTP is configured.

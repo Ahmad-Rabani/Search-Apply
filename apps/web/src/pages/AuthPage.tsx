@@ -11,7 +11,7 @@ export function AuthPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (!loading && user) return <Navigate to="/jobs" replace />;
+  if (!loading && user) return <Navigate to="/dashboard" replace />;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

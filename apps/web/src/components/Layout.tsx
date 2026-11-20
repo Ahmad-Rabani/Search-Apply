@@ -1,7 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { NotificationBell } from "./NotificationBell";
 
 const links = [
+  { to: "/dashboard", label: "Home" },
   { to: "/jobs", label: "Jobs" },
   { to: "/tracker", label: "Tracker" },
   { to: "/agent", label: "Agent" },
@@ -16,7 +18,10 @@ export function Layout() {
       <header className="sticky top-0 z-20 border-b border-teal-900/10 bg-[#f5faf8]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5">
           <div className="flex items-center gap-7">
-            <NavLink to="/jobs" className="font-display text-[1.35rem] tracking-tight text-teal-950">
+            <NavLink
+              to="/dashboard"
+              className="font-display text-[1.35rem] tracking-tight text-teal-950"
+            >
               Search&Apply
             </NavLink>
             <nav className="hidden items-center gap-1 md:flex">
@@ -37,8 +42,9 @@ export function Layout() {
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="hidden max-w-[180px] truncate text-teal-950/55 lg:inline">
+          <div className="flex items-center gap-2 text-sm sm:gap-3">
+            <NotificationBell />
+            <span className="hidden max-w-[160px] truncate text-teal-950/55 xl:inline">
               {user?.email}
             </span>
             <button type="button" onClick={logout} className="saa-btn saa-btn-ghost py-1.5">
@@ -46,7 +52,7 @@ export function Layout() {
             </button>
           </div>
         </div>
-        <nav className="grid grid-cols-4 gap-1 border-t border-teal-900/5 px-3 py-2 md:hidden">
+        <nav className="grid grid-cols-5 gap-1 border-t border-teal-900/5 px-2 py-2 md:hidden">
           {links.map((l) => (
             <NavLink
               key={l.to}
