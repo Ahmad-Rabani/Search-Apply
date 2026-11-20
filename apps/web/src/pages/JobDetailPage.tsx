@@ -273,171 +273,232 @@ export function JobDetailPage() {
         ← Back to jobs
       </Link>
 
-      <div className="saa-card p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="mb-2">
-              <PlatformBadge source={job.source} />
-            </div>
-            <h1 className="font-display text-3xl text-teal-950 md:text-[2rem]">
-              {job.title}
-            </h1>
-            <p className="mt-1 text-teal-950/65">
-              {job.company}
-              <span className="mx-1.5 text-teal-900/25">·</span>
-              {job.location || "Remote"}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded-md bg-teal-900/8 px-3 py-1.5 text-sm font-semibold text-teal-900">
-              {job.relevanceScore ?? 0}% feed
-            </span>
-            {matched && (
-              <span
-                className={`rounded-md px-3 py-1.5 text-sm font-semibold ${scoreTone(matchScore)}`}
-              >
-                {matchScore}% CV
-              </span>
-            )}
-            {applied && (
-              <span className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-950">
-                Applied
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Simple progress steps */}
-        <div className="mt-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-teal-950/45">
-          <span className={matched ? "text-teal-800" : "text-teal-950"}>1. Match</span>
-          <span className="h-px flex-1 bg-teal-900/10" />
-          <span className={matched ? "text-teal-800" : ""}>2. Download</span>
-          <span className="h-px flex-1 bg-teal-900/10" />
-          <span className={applied ? "text-amber-800" : ""}>3. Apply</span>
-        </div>
-
-        {/* Matching progress panel */}
-        {matching && (
-          <div className="mt-5 rounded-2xl border border-teal-800/15 bg-teal-50/80 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-teal-950">
-                Matching your CV to this job
-              </p>
-              <p className="font-display text-lg text-teal-900">{Math.round(progress)}%</p>
-            </div>
-            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-teal-900/10">
-              <div
-                className="h-full rounded-full bg-teal-700 transition-[width] duration-300 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="mt-3 text-sm text-teal-950/70">{matchStepLabel(progress)}</p>
-            <p className="mt-1 text-xs text-teal-950/45">
-              Usually takes 15–40 seconds. Keep this tab open.
-            </p>
-          </div>
-        )}
-
-        {/* Primary actions — max 2 clicks */}
-        {!matching && (
-          <div className="mt-5 space-y-3">
-            {!matched ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void tailor()}
-                className="saa-btn saa-btn-primary w-full py-3 text-base disabled:opacity-60 sm:w-auto sm:min-w-[220px]"
-              >
-                Match CV for this job
-              </button>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void downloadAndOpen()}
-                  className="saa-btn saa-btn-primary py-2.5 disabled:opacity-60"
-                >
-                  {work === "apply" ? "Opening apply…" : "Download PDF & apply"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void downloadOnly()}
-                  className="saa-btn saa-btn-secondary disabled:opacity-60"
-                >
-                  {work === "pdf" ? "Downloading…" : "PDF only"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void tailor()}
-                  className="saa-btn saa-btn-ghost disabled:opacity-60"
-                >
-                  Rematch
-                </button>
+      <div className="saa-card overflow-hidden">
+        <div className="border-b border-teal-900/8 px-6 py-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="mb-2">
+                <PlatformBadge source={job.source} />
               </div>
-            )}
+              <h1 className="font-display text-2xl leading-tight text-teal-950 md:text-[1.85rem]">
+                {job.title}
+              </h1>
+              <p className="mt-1.5 text-sm text-teal-950/60">
+                {job.company}
+                <span className="mx-1.5 text-teal-900/25">·</span>
+                {job.location || "Remote"}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-teal-900/8 px-3 py-1 text-xs font-semibold text-teal-900">
+                Feed {job.relevanceScore ?? 0}%
+              </span>
+              {matched && (
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${scoreTone(matchScore)}`}
+                >
+                  CV {matchScore}%
+                </span>
+              )}
+              {applied && (
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-950">
+                  Applied
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
 
-            <button
-              type="button"
-              className="text-sm font-medium text-teal-800 hover:underline"
-              onClick={() => setShowMore((v) => !v)}
-            >
-              {showMore ? "Hide more options" : "More options"}
-            </button>
+        <div className="px-6 py-5">
+          {/* Stepper — always shows all 3 */}
+          <ol className="grid grid-cols-3 gap-2 sm:gap-3">
+            {[
+              {
+                n: 1,
+                label: "Match",
+                done: matched,
+                active: !matched || matching,
+              },
+              {
+                n: 2,
+                label: "Download",
+                done: matched && !matching,
+                active: matched && !applied && !matching,
+              },
+              {
+                n: 3,
+                label: "Apply",
+                done: applied,
+                active: matched && !applied,
+              },
+            ].map((s, i, arr) => (
+              <li key={s.label} className="relative flex flex-col items-center text-center">
+                {i < arr.length - 1 && (
+                  <span
+                    className={`absolute left-[calc(50%+18px)] right-[calc(-50%+18px)] top-3.5 h-0.5 ${
+                      arr[i + 1].done || s.done ? "bg-teal-700/50" : "bg-teal-900/10"
+                    }`}
+                    aria-hidden
+                  />
+                )}
+                <span
+                  className={`relative z-[1] flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                    s.done
+                      ? "bg-teal-700 text-white"
+                      : s.active
+                        ? "bg-teal-950 text-white"
+                        : "bg-teal-900/10 text-teal-950/45"
+                  }`}
+                >
+                  {s.done ? "✓" : s.n}
+                </span>
+                <span
+                  className={`mt-2 text-[11px] font-semibold uppercase tracking-wide ${
+                    s.done || s.active ? "text-teal-950" : "text-teal-950/40"
+                  }`}
+                >
+                  {s.label}
+                </span>
+              </li>
+            ))}
+          </ol>
 
-            {showMore && (
-              <div className="flex flex-wrap gap-2 rounded-xl border border-teal-900/10 bg-white/70 p-3">
-                <button
-                  type="button"
-                  disabled={busy || !matched}
-                  onClick={() => void applyAssist()}
-                  className="saa-btn bg-teal-950 text-white hover:bg-black disabled:opacity-40"
-                >
-                  {work === "assist" ? "Assist running…" : "Apply Assist"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || !matched || applied}
-                  onClick={() => void markApplied()}
-                  className="saa-btn saa-btn-ghost disabled:opacity-40"
-                >
-                  {applied ? "Already marked" : "Mark applied only"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void makeInterviewPrep()}
-                  className="saa-btn saa-btn-secondary disabled:opacity-60"
-                >
-                  {work === "interview"
-                    ? "Preparing…"
-                    : interviewPrep
-                      ? "Refresh interview prep"
-                      : "Interview prep"}
-                </button>
-                <p className="basis-full text-xs text-teal-950/50">
-                  Apply Assist fills common fields and never auto-submits — you confirm.
+          {matching && (
+            <div className="mt-6 rounded-2xl border border-teal-800/15 bg-gradient-to-b from-teal-50 to-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-teal-600" />
+                  <p className="text-sm font-semibold text-teal-950">
+                    Matching your CV to this job
+                  </p>
+                </div>
+                <p className="font-display text-xl tabular-nums text-teal-900">
+                  {Math.round(progress)}%
                 </p>
               </div>
-            )}
-          </div>
-        )}
+              <div className="mt-3.5 h-3 overflow-hidden rounded-full bg-teal-900/10">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-teal-700 to-teal-500 transition-[width] duration-300 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="mt-3 text-sm text-teal-950/75">{matchStepLabel(progress)}</p>
+              <p className="mt-1 text-xs text-teal-950/45">
+                Usually 15–40 seconds · keep this tab open
+              </p>
+            </div>
+          )}
 
-        {hint && !matching && (
-          <p className="mt-4 text-sm text-teal-800">{hint}</p>
-        )}
-        {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
-        {!matched && !matching && (
-          <p className="mt-4 rounded-xl border border-amber-700/20 bg-amber-50/80 px-3 py-2.5 text-sm text-amber-950">
-            A matched CV is required before you apply. Save your base profile on{" "}
-            <Link to="/profile" className="font-semibold underline">
-              Profile
-            </Link>
-            , then tap <strong>Match CV for this job</strong>.
-          </p>
-        )}
+          {!matching && (
+            <div className="mt-6">
+              {!matched ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void tailor()}
+                    className="saa-btn saa-btn-primary w-full py-3.5 text-base shadow-sm disabled:opacity-60 sm:w-auto sm:min-w-[240px]"
+                  >
+                    Match CV for this job
+                  </button>
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-teal-800/80 hover:text-teal-950 hover:underline"
+                    onClick={() => setShowMore((v) => !v)}
+                  >
+                    {showMore ? "Hide options" : "More options"}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void downloadAndOpen()}
+                      className="saa-btn saa-btn-primary py-3 disabled:opacity-60"
+                    >
+                      {work === "apply" ? "Opening apply…" : "Download PDF & apply"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void downloadOnly()}
+                      className="saa-btn saa-btn-secondary disabled:opacity-60"
+                    >
+                      {work === "pdf" ? "Downloading…" : "PDF only"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void tailor()}
+                      className="saa-btn saa-btn-ghost disabled:opacity-60"
+                    >
+                      Rematch
+                    </button>
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-teal-800/80 hover:underline sm:ml-1"
+                      onClick={() => setShowMore((v) => !v)}
+                    >
+                      {showMore ? "Hide options" : "More options"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {showMore && (
+                <div className="mt-3 flex flex-wrap gap-2 rounded-2xl border border-teal-900/10 bg-teal-950/[0.02] p-3.5">
+                  <button
+                    type="button"
+                    disabled={busy || !matched}
+                    onClick={() => void applyAssist()}
+                    className="saa-btn bg-teal-950 text-white hover:bg-black disabled:opacity-40"
+                  >
+                    {work === "assist" ? "Assist running…" : "Apply Assist"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || !matched || applied}
+                    onClick={() => void markApplied()}
+                    className="saa-btn saa-btn-ghost disabled:opacity-40"
+                  >
+                    {applied ? "Already marked" : "Mark applied only"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void makeInterviewPrep()}
+                    className="saa-btn saa-btn-secondary disabled:opacity-60"
+                  >
+                    {work === "interview"
+                      ? "Preparing…"
+                      : interviewPrep
+                        ? "Refresh interview prep"
+                        : "Interview prep"}
+                  </button>
+                  <p className="basis-full text-xs text-teal-950/50">
+                    Apply Assist fills common fields and never auto-submits — you confirm.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {hint && !matching && (
+            <p className="mt-4 text-sm text-teal-800">{hint}</p>
+          )}
+          {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
+          {!matched && !matching && (
+            <p className="mt-4 rounded-xl border border-amber-700/15 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
+              A matched CV is required before you apply. Save your base profile on{" "}
+              <Link to="/profile" className="font-semibold underline">
+                Profile
+              </Link>
+              , then tap <strong>Match CV for this job</strong>.
+            </p>
+          )}
+        </div>
       </div>
 
       {matched && (
