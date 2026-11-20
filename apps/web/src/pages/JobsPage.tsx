@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { ADSENSE_SLOT_INFEED } from "../ads/config";
 import { api } from "../api/client";
+import { AdSlot } from "../components/AdSlot";
 import { PlatformBadge } from "../components/PlatformBadge";
 import { PlatformFilter } from "../components/PlatformFilter";
 import type { Job } from "../types";
@@ -189,8 +191,17 @@ export function JobsPage() {
         </div>
       ) : (
         <ul className="grid gap-3">
-          {jobs.map((job) => (
-            <li key={job._id}>
+          {jobs.map((job, index) => (
+            <li key={job._id} className="contents">
+              {index > 0 && index % 6 === 0 && (
+                <div className="col-span-full">
+                  <AdSlot
+                    slot={ADSENSE_SLOT_INFEED}
+                    format="rectangle"
+                    label="Between jobs"
+                  />
+                </div>
+              )}
               <Link
                 to={`/jobs/${job._id}`}
                 state={{ fromJobs: jobsListPath(urlQuery || q, selectedSources) }}

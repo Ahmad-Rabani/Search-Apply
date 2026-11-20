@@ -42,3 +42,18 @@ Synced on **Jobs → Sync** (no key required unless noted):
 ## Optional email
 
 Add SMTP vars to `apps/api/.env` (see `.env.example`). Agent setting **notifyEmail** sends run summaries when SMTP is configured.
+
+## AdSense (monetization)
+
+Public pages for review crawlers (no login):
+
+- `/` landing  
+- `/privacy` `/terms` `/contact`  
+- `/guides/ats-cv` `/guides/job-search`  
+
+1. Deploy the site on a real domain  
+2. Apply at [Google AdSense](https://www.google.com/adsense/)  
+3. After approval, copy `apps/web/.env.example` → `apps/web/.env` and set `VITE_ADSENSE_CLIENT` + slot IDs  
+4. Restart the web app — placeholders become live ads  
+
+Until keys are set, dashed **Ad placeholder** boxes show where units will appear.

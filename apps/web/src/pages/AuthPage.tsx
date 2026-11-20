@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export function AuthPage() {
@@ -95,6 +95,24 @@ export function AuthPage() {
           {busy ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
         </button>
       </form>
+
+      <p className="mt-6 text-center text-xs text-teal-950/45">
+        <Link to="/" className="hover:underline">
+          Home
+        </Link>
+        {" · "}
+        <Link to="/privacy" className="hover:underline">
+          Privacy
+        </Link>
+        {" · "}
+        <Link to="/terms" className="hover:underline">
+          Terms
+        </Link>
+        {" · "}
+        <Link to="/contact" className="hover:underline">
+          Contact
+        </Link>
+      </p>
     </div>
   );
 }

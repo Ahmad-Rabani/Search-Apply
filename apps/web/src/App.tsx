@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
+import { PublicLayout } from "./components/PublicLayout";
 import { AuthPage } from "./pages/AuthPage";
 import { JobsPage } from "./pages/JobsPage";
 import { JobDetailPage } from "./pages/JobDetailPage";
@@ -9,6 +10,12 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { TrackerPage } from "./pages/TrackerPage";
 import { AgentPage } from "./pages/AgentPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { LandingPage } from "./pages/LandingPage";
+import { PrivacyPage } from "./pages/PrivacyPage";
+import { TermsPage } from "./pages/TermsPage";
+import { ContactPage } from "./pages/ContactPage";
+import { AtsCvGuidePage } from "./pages/guides/AtsCvGuidePage";
+import { JobSearchTipsPage } from "./pages/guides/JobSearchTipsPage";
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -27,16 +34,24 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route element={<PublicLayout />}>
+          <Route index element={<LandingPage />} />
+          <Route path="privacy" element={<PrivacyPage />} />
+          <Route path="terms" element={<TermsPage />} />
+          <Route path="contact" element={<ContactPage />} />
+          <Route path="guides/ats-cv" element={<AtsCvGuidePage />} />
+          <Route path="guides/job-search" element={<JobSearchTipsPage />} />
+        </Route>
+
         <Route path="/auth" element={<AuthPage />} />
+
         <Route
-          path="/"
           element={
             <Protected>
               <Layout />
             </Protected>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="jobs" element={<JobsPage />} />
           <Route path="jobs/:id" element={<JobDetailPage />} />
@@ -44,6 +59,7 @@ export default function App() {
           <Route path="tracker" element={<TrackerPage />} />
           <Route path="agent" element={<AgentPage />} />
         </Route>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>

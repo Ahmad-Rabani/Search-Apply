@@ -1,6 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { ADSENSE_SLOT_HEADER } from "../ads/config";
 import { useAuth } from "../auth/AuthContext";
+import { AdSlot } from "./AdSlot";
 import { NotificationBell } from "./NotificationBell";
+import { SiteFooter } from "./SiteFooter";
 
 const links = [
   { to: "/dashboard", label: "Home" },
@@ -69,7 +72,11 @@ export function Layout() {
         </nav>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-7 md:py-9">
+        <div className="mb-5">
+          <AdSlot slot={ADSENSE_SLOT_HEADER} format="horizontal" label="Header banner" />
+        </div>
         <Outlet />
+        <SiteFooter />
       </main>
     </div>
   );
