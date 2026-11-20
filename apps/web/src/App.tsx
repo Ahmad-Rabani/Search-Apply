@@ -10,6 +10,7 @@ import { JobDetailPage } from "./pages/JobDetailPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { TrackerPage } from "./pages/TrackerPage";
 import { AgentPage } from "./pages/AgentPage";
+import { OptimizePage } from "./pages/OptimizePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="jobs" element={<JobsPage />} />
           <Route path="jobs/:id" element={<JobDetailPage />} />
+          <Route path="optimize" element={<OptimizePage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="tracker" element={<TrackerPage />} />
           <Route path="agent" element={<AgentPage />} />

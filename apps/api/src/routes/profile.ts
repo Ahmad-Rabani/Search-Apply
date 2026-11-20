@@ -3,6 +3,7 @@ import multer from "multer";
 import { requireAuth } from "../middleware/auth.js";
 import { Profile } from "../models/Profile.js";
 import { User } from "../models/User.js";
+import { SavedCv } from "../models/SavedCv.js";
 import { extractTextFromCv, parseCvTextToProfile } from "../services/cvParse.js";
 
 const router = Router();
@@ -89,6 +90,25 @@ router.post("/upload-cv", requireAuth, upload.single("cv"), async (req, res) => 
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
+
+    await SavedCv.create({
+      userId: req.user!.userId,
+      label: parsed.fullName || req.file.originalname || "Uploaded CV",
+      originalName: req.file.originalname || "",
+      fullName: parsed.fullName,
+      headline: parsed.headline,
+      email: parsed.email || req.user!.email,
+      phone: parsed.phone,
+      location: parsed.location,
+      linkedin: parsed.linkedin,
+      github: parsed.github,
+      website: parsed.website,
+      summary: parsed.summary,
+      skills: parsed.skills,
+      experience: parsed.experience,
+      education: parsed.education,
+      projects: parsed.projects,
+    });
 
     if (parsed.fullName) {
       await User.findByIdAndUpdate(req.user!.userId, { name: parsed.fullName });

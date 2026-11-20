@@ -10,6 +10,8 @@ import applicationRoutes from "./routes/applications.js";
 import agentRoutes from "./routes/agent.js";
 import notificationRoutes from "./routes/notifications.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import optimizeRoutes from "./routes/optimize.js";
+import cvRoutes from "./routes/cvs.js";
 import { startAgentScheduler } from "./services/scheduler.js";
 
 async function main() {
@@ -49,6 +51,8 @@ async function main() {
   app.use("/api/agent", agentRoutes);
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/dashboard", dashboardRoutes);
+  app.use("/api/optimize", optimizeRoutes);
+  app.use("/api/cvs", cvRoutes);
 
   app.use(
     (

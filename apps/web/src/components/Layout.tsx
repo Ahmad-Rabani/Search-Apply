@@ -8,6 +8,7 @@ import { SiteFooter } from "./SiteFooter";
 const links = [
   { to: "/dashboard", label: "Home" },
   { to: "/jobs", label: "Jobs" },
+  { to: "/optimize", label: "Optimize" },
   { to: "/tracker", label: "Tracker" },
   { to: "/agent", label: "Agent" },
   { to: "/profile", label: "Profile" },
@@ -55,7 +56,7 @@ export function Layout() {
             </button>
           </div>
         </div>
-        <nav className="grid grid-cols-5 gap-1 border-t border-teal-900/5 px-2 py-2 md:hidden">
+        <nav className="grid grid-cols-3 gap-1 border-t border-teal-900/5 px-2 py-2 sm:grid-cols-6 md:hidden">
           {links.map((l) => (
             <NavLink
               key={l.to}

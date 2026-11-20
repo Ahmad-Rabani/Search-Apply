@@ -21,6 +21,7 @@ npm run dev:web
 3. **Agent mode** — daily hunt, min score, auto-tailor for review  
 4. **Insights + alerts** — Dashboard, in-app notification bell, optional SMTP email on agent runs  
 5. **Interview prep** — company/role brief, likely questions, STAR stories, questions to ask  
+6. **Optimize** — paste any JD + upload CV (or use Profile) → ATS-optimized resume PDF  
 
 Matched CVs now prioritize **required technologies** from the job description (skills section + summary), without inventing skills you don’t have.
 
