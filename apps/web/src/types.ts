@@ -87,6 +87,8 @@ export type Application = {
   status: "saved" | "tailored" | "applied" | "interview" | "offer" | "rejected";
   notes: string;
   appliedAt?: string;
+  applyAssistAt?: string;
+  confirmationScreenshot?: string;
   jobId: Job | string;
   tailoredDocId?: TailoredDoc | string;
   updatedAt?: string;

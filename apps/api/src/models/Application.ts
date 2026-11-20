@@ -12,6 +12,8 @@ const applicationSchema = new Schema(
     },
     notes: { type: String, default: "" },
     appliedAt: { type: Date },
+    confirmationScreenshot: { type: String, default: "" },
+    applyAssistAt: { type: Date },
   },
   { timestamps: true }
 );

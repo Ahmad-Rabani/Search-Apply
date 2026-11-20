@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { PlatformBadge } from "../components/PlatformBadge";
@@ -12,27 +12,43 @@ type SyncSource = {
   reason?: string;
 };
 
-function jobsListPath(query: string) {
-  const trimmed = query.trim();
-  return trimmed ? `/jobs?q=${encodeURIComponent(trimmed)}` : "/jobs";
+const ALL_PLATFORMS = ["remoteok", "remotive", "arbeitnow", "jobicy", "adzuna"] as const;
+
+function jobsListPath(query: string, sources: string[]) {
+  const params = new URLSearchParams();
+  if (query.trim()) params.set("q", query.trim());
+  if (sources.length) params.set("sources", sources.join(","));
+  const qs = params.toString();
+  return qs ? `/jobs?${qs}` : "/jobs";
 }
 
 export function JobsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlQuery = searchParams.get("q") || "";
+  const urlSources = useMemo(
+    () =>
+      (searchParams.get("sources") || "")
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    [searchParams]
+  );
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [q, setQ] = useState(urlQuery);
+  const [selectedSources, setSelectedSources] = useState<string[]>(urlSources);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function loadJobs(search: string) {
+  async function loadJobs(search: string, sources: string[]) {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams();
       if (search.trim()) params.set("q", search.trim());
+      if (sources.length) params.set("sources", sources.join(","));
       params.set("limit", "50");
       const data = await api<{ jobs: Job[] }>(`/api/jobs?${params}`);
       setJobs(data.jobs);
@@ -43,12 +59,26 @@ export function JobsPage() {
     }
   }
 
-  function applySearch(search: string) {
+  function syncUrl(search: string, sources: string[]) {
+    const next = new URLSearchParams();
+    if (search.trim()) next.set("q", search.trim());
+    if (sources.length) next.set("sources", sources.join(","));
+    setSearchParams(next);
+  }
+
+  function applyFilters(search = q, sources = selectedSources) {
     const trimmed = search.trim();
     setQ(trimmed);
-    if (trimmed) setSearchParams({ q: trimmed });
-    else setSearchParams({});
-    void loadJobs(trimmed);
+    setSelectedSources(sources);
+    syncUrl(trimmed, sources);
+    void loadJobs(trimmed, sources);
+  }
+
+  function toggleSource(source: string) {
+    const next = selectedSources.includes(source)
+      ? selectedSources.filter((s) => s !== source)
+      : [...selectedSources, source];
+    applyFilters(q, next);
   }
 
   async function syncJobs() {
@@ -66,7 +96,7 @@ export function JobsPage() {
           s.error ? `${s.source}: error` : `${s.source}: ${s.upserted}`
         );
       setMessage(`Synced ${data.upserted} jobs (${parts.join(" · ")})`);
-      await loadJobs(q);
+      await loadJobs(q, selectedSources);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
@@ -76,8 +106,9 @@ export function JobsPage() {
 
   useEffect(() => {
     setQ(urlQuery);
-    void loadJobs(urlQuery);
-  }, [urlQuery]);
+    setSelectedSources(urlSources);
+    void loadJobs(urlQuery, urlSources);
+  }, [urlQuery, urlSources.join(",")]);
 
   return (
     <div className="space-y-6">
@@ -85,7 +116,7 @@ export function JobsPage() {
         <div>
           <h1 className="font-display text-3xl text-teal-950">Job feed</h1>
           <p className="mt-1 text-teal-950/65">
-            Sync RemoteOK, Remotive, Arbeitnow, Jobicy (+ Adzuna if keys set), then tailor a CV.
+            Filter by platform, sync boards, then tailor a matched CV before apply.
           </p>
         </div>
         <button
@@ -98,17 +129,48 @@ export function JobsPage() {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {["remoteok", "remotive", "arbeitnow", "jobicy", "adzuna"].map((s) => (
-          <PlatformBadge key={s} source={s} size="sm" />
-        ))}
-      </div>
+      <section className="rounded-2xl border border-teal-900/10 bg-white/70 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-teal-950">Platform filter</p>
+          <button
+            type="button"
+            className="text-xs font-semibold text-teal-800 hover:underline"
+            onClick={() => applyFilters(q, [])}
+          >
+            All platforms
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {ALL_PLATFORMS.map((source) => {
+            const active = selectedSources.includes(source);
+            return (
+              <button
+                key={source}
+                type="button"
+                onClick={() => toggleSource(source)}
+                className={`rounded-lg transition ${
+                  active
+                    ? "ring-2 ring-teal-700 ring-offset-1"
+                    : "opacity-55 hover:opacity-100"
+                }`}
+              >
+                <PlatformBadge source={source} size="sm" />
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-teal-950/55">
+          {selectedSources.length
+            ? `Showing: ${selectedSources.join(", ")}`
+            : "Showing jobs from all platforms"}
+        </p>
+      </section>
 
       <form
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          applySearch(q);
+          applyFilters(q, selectedSources);
         }}
       >
         <input
@@ -123,10 +185,10 @@ export function JobsPage() {
         >
           Search
         </button>
-        {urlQuery && (
+        {(urlQuery || urlSources.length > 0) && (
           <button
             type="button"
-            onClick={() => applySearch("")}
+            onClick={() => applyFilters("", [])}
             className="rounded-lg border border-teal-900/15 bg-white px-3 py-2 text-sm font-medium text-teal-950/70"
           >
             Clear
@@ -142,12 +204,12 @@ export function JobsPage() {
       ) : jobs.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-teal-900/20 bg-white/50 p-8 text-center">
           <p className="font-medium text-teal-950">
-            {q.trim() ? `No jobs found for “${q.trim()}”` : "No jobs yet"}
+            {q.trim() || selectedSources.length
+              ? "No jobs match these filters"
+              : "No jobs yet"}
           </p>
           <p className="mt-1 text-sm text-teal-950/60">
-            {q.trim()
-              ? "Try fewer keywords (e.g. react) or Sync all boards."
-              : "Click Sync all boards to pull listings from multiple platforms."}
+            Try clearing filters or Sync all boards.
           </p>
         </div>
       ) : (
@@ -156,7 +218,7 @@ export function JobsPage() {
             <li key={job._id}>
               <Link
                 to={`/jobs/${job._id}`}
-                state={{ fromJobs: jobsListPath(urlQuery || q) }}
+                state={{ fromJobs: jobsListPath(urlQuery || q, selectedSources) }}
                 className="block rounded-2xl border border-teal-900/10 bg-white/75 p-4 transition hover:border-teal-700/40 hover:bg-white"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">

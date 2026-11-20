@@ -30,9 +30,15 @@ router.get("/", requireAuth, async (req, res) => {
   const remoteOnly = String(req.query.remoteOnly || "") === "true";
   const minScore = Number(req.query.minScore || 0);
   const limit = Math.min(Number(req.query.limit || 50), 100);
+  const sources = String(req.query.sources || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 
   const filter: Record<string, unknown> = {};
   if (remoteOnly) filter.remote = true;
+  if (sources.length === 1) filter.source = sources[0];
+  else if (sources.length > 1) filter.source = { $in: sources };
 
   const [jobs, user, profile] = await Promise.all([
     Job.find(filter).sort({ postedAt: -1, createdAt: -1 }).limit(500),
@@ -102,7 +108,12 @@ router.get("/", requireAuth, async (req, res) => {
     .slice(0, limit)
     .map(({ allInHaystack: _a, titleHits: _t, primaryHits: _p, ...job }) => job);
 
-  return res.json({ jobs: scored, count: scored.length, query: q || null });
+  return res.json({
+    jobs: scored,
+    count: scored.length,
+    query: q || null,
+    sources: sources.length ? sources : null,
+  });
 });
 
 router.get("/:id", requireAuth, async (req, res) => {

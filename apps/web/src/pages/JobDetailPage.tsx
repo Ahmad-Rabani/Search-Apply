@@ -164,6 +164,40 @@ export function JobDetailPage() {
     }
   }
 
+  async function applyAssist() {
+    if (!id) return;
+    if (!tailored) {
+      setError("Pehle matched CV generate karo, phir Apply Assist use karo.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setHint("Apply Assist browser khol raha hai — fields auto-fill hongi, submit manually karo.");
+    try {
+      // Ensure PDF is ready for upload on the form
+      await fetch(`/api/jobs/${id}/pdf`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      }).catch(() => undefined);
+
+      const data = await api<{
+        application: Application;
+        assist: { message: string; filledFields: string[] };
+      }>(`/api/applications/${id}/apply-assist`, { method: "POST" });
+
+      setApplication(data.application);
+      setHint(
+        `${data.assist.message} Filled: ${
+          data.assist.filledFields?.join(", ") || "none detected"
+        }.`
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Apply assist failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) return <p className="text-teal-950/60">Loading…</p>;
   if (!job) return <p className="text-red-700">{error || "Job not found"}</p>;
 
@@ -262,7 +296,19 @@ export function JobDetailPage() {
           >
             {step3Done ? "Marked applied" : "3. Mark as applied"}
           </button>
+          <button
+            type="button"
+            disabled={busy || !tailored}
+            onClick={() => void applyAssist()}
+            className="rounded-lg bg-teal-950 px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:opacity-40"
+          >
+            {busy ? "Assist running…" : "Apply Assist (auto-fill + screenshot)"}
+          </button>
         </div>
+        <p className="mt-2 text-xs text-teal-950/55">
+          Apply Assist opens the job page, fills common fields from your profile, captures a
+          screenshot, and does not auto-submit (you confirm manually).
+        </p>
 
         {hint && <p className="mt-3 text-sm text-teal-800">{hint}</p>}
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}

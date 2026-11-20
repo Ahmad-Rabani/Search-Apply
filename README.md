@@ -1,13 +1,13 @@
 # Search & Apply
 
-AI-powered job search assistant: sync remote jobs, score relevance, generate ATS-tailored CVs + cover letters, export PDF, and track applications.
+AI-powered job search assistant: sync multiple job boards, filter by platform, score relevance, generate ATS-tailored CVs, Apply Assist (human-in-the-loop), and track applications.
 
 ## Stack
 
 - **Web:** React + Vite + Tailwind CSS
 - **API:** Node.js + Express + TypeScript + MongoDB
-- **AI:** Anthropic Claude
-- **PDF:** Puppeteer
+- **AI:** Google Gemini (default) / Anthropic Claude (optional)
+- **PDF / browser assist:** Puppeteer
 
 ## Quick start
 
@@ -15,7 +15,7 @@ AI-powered job search assistant: sync remote jobs, score relevance, generate ATS
 
 - Node.js 20+
 - MongoDB running locally **or** a MongoDB Atlas URI
-- Gemini API key (free tier) — or Anthropic as optional fallback
+- Gemini API key (free tier)
 
 ### 2. Install
 
@@ -25,57 +25,47 @@ npm install
 
 ### 3. Configure
 
-Copy env example into the API:
-
 ```bash
 copy .env.example apps\api\.env
 ```
-
-Edit `apps/api/.env`:
 
 ```
 MONGODB_URI=mongodb://127.0.0.1:27017/search-and-apply
 JWT_SECRET=your-long-secret
 GEMINI_API_KEY=your-gemini-key
 GEMINI_MODEL=gemini-2.5-flash
+# Optional Indeed-like board:
+# ADZUNA_APP_ID=
+# ADZUNA_APP_KEY=
 ```
 
 ### 4. Run
 
-> **Windows note:** this folder name contains `&`, which breaks some `.bin` shims. Prefer the commands below (or rename the folder to `SearchApply`).
-
-From the repo root:
+> **Windows note:** folder name `Search&Apply` breaks some `.bin` shims — use the commands below.
 
 ```bash
 npm run dev:api
 npm run dev:web
 ```
 
-Or from each app folder:
-
-```bash
-cd apps/api
-node ../../node_modules/tsx/dist/cli.mjs watch src/index.ts
-
-cd apps/web
-node ../../node_modules/vite/bin/vite.js
-```
-
 - Web: http://localhost:5173
 - API: http://localhost:4000/api/health
 
-## Phase 1 flow
+## Phase 1 — Discovery + tailored CV
 
 1. Register / log in
-2. **Profile** → upload CV (PDF/DOCX/TXT) → review auto-filled fields → Save
-3. On **Jobs**, click **Sync RemoteOK**
-4. Open a job → **Generate matched CV** (ATS keywords from JD)
-5. Download matched PDF → open apply page (or use **Match → PDF → Open apply**)
-6. Track status on **Tracker**
+2. **Profile** → upload CV → review → Save
+3. **Jobs** → Sync all boards (RemoteOK, Remotive, Arbeitnow, Jobicy, optional Adzuna)
+4. Filter by platform + search
+5. Generate matched CV → Download PDF
 
-CV parse + tailor use **Gemini** by default (`GEMINI_API_KEY`). Anthropic is optional fallback.
+## Phase 2 — Apply assist + tracker
+
+1. On a job page: **Apply Assist** opens the apply URL, auto-fills common fields from your profile, saves a confirmation screenshot, and does **not** auto-submit
+2. **Tracker**: filter by status + platform, edit notes, open screenshots
+3. Search/platform filters persist in the URL when you go back from a job
 
 ## Notes
 
-- Auto-apply browser automation is intentionally **not** in Phase 1 (ToS / account risk).
-- Without `ANTHROPIC_API_KEY`, job sync + tracker still work; tailor will return an error until you add a key.
+- Full silent LinkedIn/Indeed auto-login bots are avoided (ToS / ban risk). Apply Assist is supervised.
+- Job boards synced without keys: RemoteOK, Remotive, Arbeitnow, Jobicy.
