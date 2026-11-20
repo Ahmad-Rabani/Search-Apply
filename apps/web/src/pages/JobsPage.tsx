@@ -93,9 +93,13 @@ export function JobsPage() {
         <p className="text-teal-950/60">Loading jobs…</p>
       ) : jobs.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-teal-900/20 bg-white/50 p-8 text-center">
-          <p className="font-medium text-teal-950">No jobs yet</p>
+          <p className="font-medium text-teal-950">
+            {q.trim() ? `No jobs found for “${q.trim()}”` : "No jobs yet"}
+          </p>
           <p className="mt-1 text-sm text-teal-950/60">
-            Click <strong>Sync RemoteOK</strong> to pull the latest remote listings.
+            {q.trim()
+              ? "Try fewer keywords (e.g. react) or Sync RemoteOK for fresher listings."
+              : "Click Sync RemoteOK to pull the latest remote listings."}
           </p>
         </div>
       ) : (

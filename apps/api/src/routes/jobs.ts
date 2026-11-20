@@ -32,11 +32,10 @@ router.get("/", requireAuth, async (req, res) => {
   const limit = Math.min(Number(req.query.limit || 50), 100);
 
   const filter: Record<string, unknown> = {};
-  if (q) filter.$text = { $search: q };
   if (remoteOnly) filter.remote = true;
 
   const [jobs, user, profile] = await Promise.all([
-    Job.find(filter).sort({ postedAt: -1, createdAt: -1 }).limit(200),
+    Job.find(filter).sort({ postedAt: -1, createdAt: -1 }).limit(500),
     User.findById(req.user!.userId),
     Profile.findOne({ userId: req.user!.userId }),
   ]);
@@ -49,16 +48,61 @@ router.get("/", requireAuth, async (req, res) => {
     keywords: [],
   };
 
-  const scored = jobs
-    .map((job) => ({
-      ...job.toObject(),
-      relevanceScore: scoreJob(job, preferences, profile?.skills || []),
-    }))
-    .filter((j) => j.relevanceScore >= minScore)
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, limit);
+  const tokens = q
+    .toLowerCase()
+    .split(/[^a-z0-9+#.\-]+/i)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
 
-  return res.json({ jobs: scored, count: scored.length });
+  const scoredAll = jobs
+    .map((job) => {
+      const title = (job.title || "").toLowerCase();
+      const tags = (job.tags || []).map((t) => String(t).toLowerCase()).join(" ");
+      const company = (job.company || "").toLowerCase();
+      const primary = `${title} ${tags} ${company}`;
+      const haystack = `${primary} ${(job.description || "").toLowerCase()}`;
+
+      const allInHaystack =
+        tokens.length === 0 || tokens.every((t) => haystack.includes(t));
+      const titleHits = tokens.filter((t) => title.includes(t)).length;
+      const primaryHits = tokens.filter((t) => primary.includes(t)).length;
+
+      const base = scoreJob(job, preferences, profile?.skills || []);
+      const searchBoost =
+        tokens.length === 0
+          ? 0
+          : titleHits * 18 +
+            primaryHits * 10 +
+            (titleHits === tokens.length ? 25 : 0) +
+            (primaryHits === tokens.length ? 15 : 0);
+
+      return {
+        ...job.toObject(),
+        relevanceScore: Math.min(100, base + searchBoost),
+        allInHaystack,
+        titleHits,
+        primaryHits,
+      };
+    })
+    .filter((j) => j.allInHaystack)
+    .filter((j) => j.relevanceScore >= minScore);
+
+  // If any results match in title/tags/company, prefer those over buried description hits
+  const primaryMatches = scoredAll.filter((j) => j.primaryHits > 0);
+  const pool = primaryMatches.length ? primaryMatches : scoredAll;
+
+  const scored = pool
+    .sort((a, b) => {
+      if (tokens.length) {
+        if (b.titleHits !== a.titleHits) return b.titleHits - a.titleHits;
+        if (b.primaryHits !== a.primaryHits) return b.primaryHits - a.primaryHits;
+      }
+      return b.relevanceScore - a.relevanceScore;
+    })
+    .slice(0, limit)
+    .map(({ allInHaystack: _a, titleHits: _t, primaryHits: _p, ...job }) => job);
+
+  return res.json({ jobs: scored, count: scored.length, query: q || null });
 });
 
 router.get("/:id", requireAuth, async (req, res) => {
