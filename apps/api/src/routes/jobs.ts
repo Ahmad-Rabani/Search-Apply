@@ -6,9 +6,11 @@ import { Profile } from "../models/Profile.js";
 import { User } from "../models/User.js";
 import { TailoredDoc } from "../models/TailoredDoc.js";
 import { Application } from "../models/Application.js";
+import { InterviewPrep } from "../models/InterviewPrep.js";
 import { syncAllJobSources } from "../services/jobSync.js";
 import { scoreJob } from "../services/scoring.js";
 import { tailorCvForJob } from "../services/claude.js";
+import { generateInterviewPrep } from "../services/interviewPrep.js";
 import { htmlToPdf } from "../services/pdf.js";
 
 const router = Router();
@@ -120,11 +122,12 @@ router.get("/:id", requireAuth, async (req, res) => {
   const job = await Job.findById(req.params.id);
   if (!job) return res.status(404).json({ error: "Job not found" });
 
-  const [user, profile, tailored, application] = await Promise.all([
+  const [user, profile, tailored, application, interviewPrep] = await Promise.all([
     User.findById(req.user!.userId),
     Profile.findOne({ userId: req.user!.userId }),
     TailoredDoc.findOne({ userId: req.user!.userId, jobId: job._id }),
     Application.findOne({ userId: req.user!.userId, jobId: job._id }),
+    InterviewPrep.findOne({ userId: req.user!.userId, jobId: job._id }),
   ]);
 
   const relevanceScore = scoreJob(
@@ -137,6 +140,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     job: { ...job.toObject(), relevanceScore },
     tailored,
     application,
+    interviewPrep,
   });
 });
 
@@ -180,6 +184,44 @@ router.post("/:id/tailor", requireAuth, async (req, res) => {
     console.error(err);
     return res.status(500).json({
       error: err instanceof Error ? err.message : "Tailoring failed",
+    });
+  }
+});
+
+router.post("/:id/interview-prep", requireAuth, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+
+    const profile = await Profile.findOne({ userId: req.user!.userId });
+    if (!profile || !profile.fullName) {
+      return res.status(400).json({
+        error: "Complete your profile before generating interview prep",
+      });
+    }
+
+    const tailored = await TailoredDoc.findOne({
+      userId: req.user!.userId,
+      jobId: job._id,
+    });
+
+    const result = await generateInterviewPrep(profile, job, tailored);
+
+    const interviewPrep = await InterviewPrep.findOneAndUpdate(
+      { userId: req.user!.userId, jobId: job._id },
+      {
+        userId: req.user!.userId,
+        jobId: job._id,
+        ...result,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({ interviewPrep });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      error: err instanceof Error ? err.message : "Interview prep failed",
     });
   }
 });

@@ -2,6 +2,8 @@ export type TailoredCvContent = {
   headline?: string;
   summary?: string;
   skills?: string[];
+  /** JD-aligned tech that the candidate actually has — shown first / emphasized */
+  highlightedSkills?: string[];
   experience?: Array<{
     title?: string;
     company?: string;
@@ -56,12 +58,26 @@ function dateRange(start?: string, end?: string, current?: boolean) {
 export function renderProfessionalCvHtml(
   contact: CvContact,
   cv: TailoredCvContent,
-  opts?: { targetRole?: string; company?: string; matchScore?: number }
+  opts?: {
+    targetRole?: string;
+    company?: string;
+    matchScore?: number;
+    highlightedSkills?: string[];
+  }
 ) {
   const name = esc(contact.fullName || "Candidate");
   const headline = esc(cv.headline || opts?.targetRole || "");
   const summary = esc(cv.summary || "");
+  const highlighted = (
+    opts?.highlightedSkills ||
+    cv.highlightedSkills ||
+    []
+  )
+    .map(String)
+    .filter(Boolean);
+  const highlightSet = new Set(highlighted.map((s) => s.toLowerCase()));
   const skills = (cv.skills || []).map(String).filter(Boolean);
+  const otherSkills = skills.filter((s) => !highlightSet.has(s.toLowerCase()));
   const experience = cv.experience || [];
   const education = cv.education || [];
   const projects = cv.projects || [];
@@ -78,20 +94,23 @@ export function renderProfessionalCvHtml(
     .filter(Boolean)
     .map(esc);
 
-  const targetLine =
-    opts?.targetRole || opts?.company
-      ? `<p class="target">Targeting: ${esc(opts?.targetRole || "")}${
-          opts?.company ? ` @ ${esc(opts.company)}` : ""
-        }${
-          typeof opts?.matchScore === "number"
-            ? ` · Match ${Math.round(opts.matchScore)}%`
-            : ""
-        }</p>`
-      : "";
-
-  const skillsHtml = skills.length
-    ? `<div class="skills">${skills
-        .map((s) => `<span class="skill">${esc(s)}</span>`)
+  // One clean skills row: JD-aligned tech first, then the rest (no "targeting" meta on the CV)
+  const orderedSkills = [
+    ...highlighted,
+    ...otherSkills.filter(
+      (s) => !highlightSet.has(s.toLowerCase())
+    ),
+  ];
+  const finalSkills =
+    orderedSkills.length > 0
+      ? orderedSkills
+      : skills;
+  const skillsHtml = finalSkills.length
+    ? `<div class="skills">${finalSkills
+        .map((s) => {
+          const isCore = highlightSet.has(s.toLowerCase());
+          return `<span class="skill${isCore ? " skill-core" : ""}">${esc(s)}</span>`;
+        })
         .join("")}</div>`
     : "";
 
@@ -207,11 +226,6 @@ export function renderProfessionalCvHtml(
       font-weight: 600;
       color: var(--teal);
     }
-    .target {
-      margin: 6px 0 0;
-      font-size: 9.5pt;
-      color: var(--muted);
-    }
     .contacts {
       margin-top: 10px;
       display: flex;
@@ -249,6 +263,12 @@ export function renderProfessionalCvHtml(
       padding: 3px 10px;
       font-size: 9pt;
       font-weight: 500;
+    }
+    .skill-core {
+      background: var(--teal-soft);
+      border-color: #9cc9c2;
+      color: var(--teal);
+      font-weight: 600;
     }
     .job, .edu, .project { margin: 0 0 12px; }
     .job-head {
@@ -290,7 +310,6 @@ export function renderProfessionalCvHtml(
     <header>
       <h1 class="name">${name}</h1>
       ${headline ? `<p class="headline">${headline}</p>` : ""}
-      ${targetLine}
       ${
         links.length
           ? `<div class="contacts">${links

@@ -82,6 +82,16 @@ export type TailoredDoc = {
   atsNotes: string;
 };
 
+export type InterviewPrep = {
+  _id: string;
+  companyBrief: string;
+  roleFocus: string[];
+  likelyQuestions: Array<{ question: string; tip: string }>;
+  storiesToPrepare: Array<{ theme: string; howToAnswer: string }>;
+  questionsToAsk: string[];
+  risks: string[];
+};
+
 export type Application = {
   _id: string;
   status: "saved" | "tailored" | "applied" | "interview" | "offer" | "rejected";

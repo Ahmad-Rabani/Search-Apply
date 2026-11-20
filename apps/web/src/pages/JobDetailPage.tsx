@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { api, getToken } from "../api/client";
 import { JobDescription } from "../components/JobDescription";
 import { PlatformBadge } from "../components/PlatformBadge";
-import type { Application, Job, TailoredDoc } from "../types";
+import type { Application, InterviewPrep, Job, TailoredDoc } from "../types";
 
 function scoreTone(score: number) {
   if (score >= 75) return "bg-teal-800 text-white";
@@ -19,6 +19,7 @@ export function JobDetailPage() {
   const [job, setJob] = useState<Job | null>(null);
   const [tailored, setTailored] = useState<TailoredDoc | null>(null);
   const [application, setApplication] = useState<Application | null>(null);
+  const [interviewPrep, setInterviewPrep] = useState<InterviewPrep | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -33,10 +34,12 @@ export function JobDetailPage() {
         job: Job;
         tailored: TailoredDoc | null;
         application: Application | null;
+        interviewPrep: InterviewPrep | null;
       }>(`/api/jobs/${id}`);
       setJob(data.job);
       setTailored(data.tailored);
       setApplication(data.application);
+      setInterviewPrep(data.interviewPrep);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load job");
     } finally {
@@ -58,7 +61,9 @@ export function JobDetailPage() {
         method: "POST",
       });
       setTailored(data.tailored);
-      setHint("Matched CV ready. Download PDF, then open the apply page.");
+      setHint(
+        "CV rewritten for this JD (headline, summary, skills, bullets). Check preview — then download PDF."
+      );
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Tailoring failed");
@@ -159,6 +164,25 @@ export function JobDetailPage() {
       setApplication(data.application);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function makeInterviewPrep() {
+    if (!id) return;
+    setBusy(true);
+    setError("");
+    setHint("");
+    try {
+      const data = await api<{ interviewPrep: InterviewPrep }>(
+        `/api/jobs/${id}/interview-prep`,
+        { method: "POST" }
+      );
+      setInterviewPrep(data.interviewPrep);
+      setHint("Interview prep ready — company brief, likely questions, and stories.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Interview prep failed");
     } finally {
       setBusy(false);
     }
@@ -306,6 +330,18 @@ export function JobDetailPage() {
           >
             {busy ? "Assist running…" : "Apply Assist"}
           </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void makeInterviewPrep()}
+            className="saa-btn border border-teal-800/20 bg-white text-teal-950 disabled:opacity-60"
+          >
+            {busy
+              ? "Preparing…"
+              : interviewPrep
+                ? "Refresh interview prep"
+                : "Interview prep"}
+          </button>
         </div>
         <p className="mt-2 text-xs text-teal-950/55">
           Apply Assist opens the job page, fills common fields from your profile, captures a
@@ -332,36 +368,57 @@ export function JobDetailPage() {
               <h2 className="font-display text-2xl">Tailored for this role</h2>
             </div>
             <div className="text-right">
-              <p className="text-xs uppercase tracking-wide text-teal-100/70">Match score</p>
+              <p className="text-xs uppercase tracking-wide text-teal-100/70">
+                ATS coverage
+              </p>
               <p className="font-display text-4xl font-semibold">{matchScore}%</p>
+              <p className="mt-1 text-[11px] text-teal-100/60">
+                After rewrite vs this JD
+              </p>
             </div>
           </div>
 
           <div className="grid gap-4 p-5 lg:grid-cols-2">
             <div className="rounded-xl border border-teal-900/10 bg-teal-50/50 p-4">
-              <h3 className="font-semibold text-teal-950">ATS notes</h3>
-              <p className="mt-2 text-sm leading-relaxed text-teal-950/75">{tailored.atsNotes}</p>
+              <h3 className="font-semibold text-teal-950">What changed for this role</h3>
+              <p className="mt-2 text-sm leading-relaxed text-teal-950/75">
+                {tailored.atsNotes}
+              </p>
+
+              {matchScore < 40 && (
+                <p className="mt-3 rounded-lg border border-amber-700/25 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  Low overlap with this JD. CV is rewritten toward the role, but score
+                  stays low until your Profile includes their stack. Add the gap skills
+                  below (if you have them) → save Profile → <strong>Re-match CV</strong>.
+                </p>
+              )}
 
               <div className="mt-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-teal-950/50">
-                  Matched keywords
+                  JD tech placed on this CV
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {tailored.keywords.map((k) => (
-                    <span
-                      key={k}
-                      className="rounded bg-teal-900/8 px-2 py-0.5 text-xs font-medium text-teal-950"
-                    >
-                      {k}
-                    </span>
-                  ))}
+                  {tailored.keywords.length ? (
+                    tailored.keywords.map((k) => (
+                      <span
+                        key={k}
+                        className="rounded bg-teal-900/8 px-2 py-0.5 text-xs font-medium text-teal-950"
+                      >
+                        {k}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-sm text-teal-950/55">
+                      Almost no overlapping tech in your Profile for this JD.
+                    </p>
+                  )}
                 </div>
               </div>
 
               {tailored.missingSkills.length > 0 && (
                 <div className="mt-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/70">
-                    Gaps
+                    Add to Profile to raise match
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {tailored.missingSkills.map((k) => (
@@ -398,6 +455,86 @@ export function JobDetailPage() {
                   srcDoc={tailored.cvHtml}
                 />
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {interviewPrep && (
+        <section className="overflow-hidden rounded-2xl border border-teal-900/10 bg-white/90">
+          <div className="border-b border-teal-900/10 bg-teal-900 px-5 py-4 text-white">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-100/70">
+              Phase 5
+            </p>
+            <h2 className="font-display text-2xl">Interview prep</h2>
+          </div>
+
+          <div className="grid gap-4 p-5 lg:grid-cols-2">
+            <div className="rounded-xl border border-teal-900/10 bg-teal-50/40 p-4 lg:col-span-2">
+              <h3 className="font-semibold text-teal-950">Company & role brief</h3>
+              <p className="mt-2 text-sm leading-relaxed text-teal-950/80">
+                {interviewPrep.companyBrief}
+              </p>
+              {interviewPrep.roleFocus.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {interviewPrep.roleFocus.map((f) => (
+                    <span
+                      key={f}
+                      className="rounded bg-white px-2 py-0.5 text-xs font-medium text-teal-900"
+                    >
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-teal-900/10 bg-white p-4">
+              <h3 className="font-semibold text-teal-950">Likely questions</h3>
+              <ul className="mt-3 space-y-3">
+                {interviewPrep.likelyQuestions.map((q) => (
+                  <li key={q.question} className="text-sm">
+                    <p className="font-medium text-teal-950">{q.question}</p>
+                    {q.tip && (
+                      <p className="mt-1 text-teal-950/65">Tip: {q.tip}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-xl border border-teal-900/10 bg-white p-4">
+                <h3 className="font-semibold text-teal-950">Stories to prepare</h3>
+                <ul className="mt-3 space-y-3">
+                  {interviewPrep.storiesToPrepare.map((s) => (
+                    <li key={s.theme} className="text-sm">
+                      <p className="font-medium text-teal-950">{s.theme}</p>
+                      <p className="mt-1 text-teal-950/65">{s.howToAnswer}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-teal-900/10 bg-white p-4">
+                <h3 className="font-semibold text-teal-950">Ask them</h3>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-teal-950/80">
+                  {interviewPrep.questionsToAsk.map((q) => (
+                    <li key={q}>{q}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {interviewPrep.risks.length > 0 && (
+                <div className="rounded-xl border border-amber-700/20 bg-amber-50/60 p-4">
+                  <h3 className="font-semibold text-amber-950">Watch-outs</h3>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-950/80">
+                    {interviewPrep.risks.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </section>

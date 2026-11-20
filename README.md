@@ -20,6 +20,9 @@ npm run dev:web
 2. **Apply assist + tracker** — human-in-the-loop fill + screenshots + status notes  
 3. **Agent mode** — daily hunt, min score, auto-tailor for review  
 4. **Insights + alerts** — Dashboard, in-app notification bell, optional SMTP email on agent runs  
+5. **Interview prep** — company/role brief, likely questions, STAR stories, questions to ask  
+
+Matched CVs now prioritize **required technologies** from the job description (skills section + summary), without inventing skills you don’t have.
 
 ## Optional email
 
