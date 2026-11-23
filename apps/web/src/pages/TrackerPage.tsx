@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, getToken } from "../api/client";
 import { PlatformBadge } from "../components/PlatformBadge";
 import { PlatformFilter } from "../components/PlatformFilter";
+import { StatusSelect } from "../components/StatusSelect";
 import { toastFromError, toastSuccess } from "../lib/toast";
 import type { Application, Job } from "../types";
 
@@ -79,7 +80,9 @@ export function TrackerPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-800/70">
           Pipeline
         </p>
-        <h1 className="font-display text-3xl text-teal-950 md:text-4xl">Application tracker</h1>
+        <h1 className="font-display text-3xl text-teal-950 md:text-4xl">
+          Application tracker
+        </h1>
         <p className="mt-1 text-sm text-teal-950/60">
           Filter by status and platform, keep notes, review apply screenshots.
         </p>
@@ -136,65 +139,93 @@ export function TrackerPage() {
           {apps.map((app) => {
             const job = typeof app.jobId === "object" ? (app.jobId as Job) : null;
             return (
-              <li key={app._id} className="saa-card space-y-3 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
-                    {job?.source && <PlatformBadge source={job.source} size="sm" />}
+              <li key={app._id} className="saa-card overflow-visible p-0">
+                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 sm:p-5">
+                  <div className="min-w-0 flex-1 space-y-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {job?.source && <PlatformBadge source={job.source} size="sm" />}
+                      {app.applyAssistAt && (
+                        <span className="rounded-md bg-teal-900/5 px-2 py-0.5 text-[11px] font-medium text-teal-900/65">
+                          Assist used
+                        </span>
+                      )}
+                    </div>
+
                     <Link
                       to={job ? `/jobs/${job._id}` : "/jobs"}
-                      className="text-lg font-semibold text-teal-950 hover:text-teal-800"
+                      className="block text-lg font-semibold leading-snug text-teal-950 hover:text-teal-800"
                     >
                       {job?.title || "Job"}
                     </Link>
+
                     <p className="text-sm text-teal-950/55">
-                      {job?.company || "Unknown"}
-                      {app.appliedAt
-                        ? ` · applied ${new Date(app.appliedAt).toLocaleDateString()}`
-                        : ""}
+                      <span className="font-medium text-teal-950/70">
+                        {job?.company || "Unknown"}
+                      </span>
+                      {job?.location ? (
+                        <>
+                          <span className="mx-1.5 text-teal-900/25">·</span>
+                          {job.location}
+                        </>
+                      ) : null}
+                      {app.appliedAt ? (
+                        <>
+                          <span className="mx-1.5 text-teal-900/25">·</span>
+                          Applied {new Date(app.appliedAt).toLocaleDateString()}
+                        </>
+                      ) : null}
                     </p>
                   </div>
-                  <select
-                    value={app.status}
-                    onChange={(e) => void updateStatus(app._id, e.target.value)}
-                    className="saa-input max-w-[160px] py-2 text-sm font-medium"
-                  >
-                    {statuses.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+
+                  <div className="sm:pt-0.5">
+                    <StatusSelect
+                      value={app.status}
+                      options={statuses}
+                      onChange={(status) => void updateStatus(app._id, status)}
+                    />
+                  </div>
                 </div>
 
-                <textarea
-                  rows={2}
-                  value={editingNotes[app._id] || ""}
-                  onChange={(e) =>
-                    setEditingNotes((prev) => ({ ...prev, [app._id]: e.target.value }))
-                  }
-                  onBlur={() => void saveNotes(app._id)}
-                  placeholder="Notes (auto-saves on blur)"
-                  className="saa-input text-sm"
-                />
+                <div className="space-y-3 border-t border-teal-900/8 px-4 py-4 sm:px-5">
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-teal-950/45">
+                      Notes
+                    </span>
+                    <textarea
+                      rows={2}
+                      value={editingNotes[app._id] || ""}
+                      onChange={(e) =>
+                        setEditingNotes((prev) => ({
+                          ...prev,
+                          [app._id]: e.target.value,
+                        }))
+                      }
+                      onBlur={() => void saveNotes(app._id)}
+                      placeholder="Add notes — saves when you leave this field"
+                      className="saa-input text-sm"
+                    />
+                  </label>
 
-                {app.confirmationScreenshot && (
-                  <button
-                    type="button"
-                    className="text-sm font-semibold text-teal-800 hover:underline"
-                    onClick={() => {
-                      void fetch(`/api/applications/${app._id}/screenshot`, {
-                        headers: { Authorization: `Bearer ${getToken()}` },
-                      })
-                        .then((r) => r.blob())
-                        .then((blob) => {
-                          const url = URL.createObjectURL(blob);
-                          window.open(url, "_blank", "noopener,noreferrer");
-                        });
-                    }}
-                  >
-                    View apply screenshot →
-                  </button>
-                )}
+                  {app.confirmationScreenshot && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal-800 hover:underline"
+                      onClick={() => {
+                        void fetch(`/api/applications/${app._id}/screenshot`, {
+                          headers: { Authorization: `Bearer ${getToken()}` },
+                        })
+                          .then((r) => r.blob())
+                          .then((blob) => {
+                            const url = URL.createObjectURL(blob);
+                            window.open(url, "_blank", "noopener,noreferrer");
+                          });
+                      }}
+                    >
+                      View apply screenshot
+                      <span aria-hidden>→</span>
+                    </button>
+                  )}
+                </div>
               </li>
             );
           })}
