@@ -50,6 +50,10 @@ const profileSchema = new Schema(
     experience: { type: [experienceSchema], default: [] },
     education: { type: [educationSchema], default: [] },
     projects: { type: [projectSchema], default: [] },
+    /** Last uploaded CV visual design — used when generating matched CVs. */
+    designHtml: { type: String, default: "" },
+    originalFilePath: { type: String, default: "" },
+    originalMimeType: { type: String, default: "" },
   },
   { timestamps: true }
 );

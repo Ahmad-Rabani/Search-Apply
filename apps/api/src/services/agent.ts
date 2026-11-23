@@ -67,7 +67,11 @@ export async function runAgentForUser(
       const existing = await TailoredDoc.findOne({ userId, jobId: item.job._id });
       let tailored = existing;
       if (!tailored) {
-        const result = await tailorCvForJob(profile, item.job);
+        const result = await tailorCvForJob(profile, item.job, {
+          designHtml: String(
+            (profile as { designHtml?: string }).designHtml || ""
+          ),
+        });
         tailored = await TailoredDoc.findOneAndUpdate(
           { userId, jobId: item.job._id },
           { userId, jobId: item.job._id, ...result },

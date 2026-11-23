@@ -2,7 +2,8 @@ import { Router } from "express";
 import multer from "multer";
 import { requireAuth } from "../middleware/auth.js";
 import { SavedCv } from "../models/SavedCv.js";
-import { extractTextFromCv, parseCvTextToProfile } from "../services/cvParse.js";
+import { Profile } from "../models/Profile.js";
+import { prepareCvUpload } from "../services/cvUpload.js";
 
 const router = Router();
 const upload = multer({
@@ -14,7 +15,7 @@ router.get("/", requireAuth, async (req, res) => {
   const cvs = await SavedCv.find({ userId: req.user!.userId })
     .sort({ createdAt: -1 })
     .select(
-      "_id label originalName fullName headline skills createdAt updatedAt"
+      "_id label originalName fullName headline skills designSource createdAt updatedAt"
     )
     .lean();
   return res.json({ cvs });
@@ -26,36 +27,50 @@ router.post("/upload", requireAuth, upload.single("cv"), async (req, res) => {
       return res.status(400).json({ error: "CV file required (field name: cv)" });
     }
 
-    const text = await extractTextFromCv(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype
-    );
-    const parsed = await parseCvTextToProfile(text);
+    const prepared = await prepareCvUpload({
+      userId: req.user!.userId,
+      file: req.file,
+    });
     const label =
       String(req.body.label || "").trim() ||
-      parsed.fullName ||
-      req.file.originalname ||
+      prepared.fullName ||
+      prepared.originalName ||
       "Uploaded CV";
 
     const cv = await SavedCv.create({
       userId: req.user!.userId,
       label,
-      originalName: req.file.originalname || "",
-      fullName: parsed.fullName,
-      headline: parsed.headline,
-      email: parsed.email || req.user!.email,
-      phone: parsed.phone,
-      location: parsed.location,
-      linkedin: parsed.linkedin,
-      github: parsed.github,
-      website: parsed.website,
-      summary: parsed.summary,
-      skills: parsed.skills,
-      experience: parsed.experience,
-      education: parsed.education,
-      projects: parsed.projects,
+      originalName: prepared.originalName,
+      fullName: prepared.fullName,
+      headline: prepared.headline,
+      email: prepared.email || req.user!.email,
+      phone: prepared.phone,
+      location: prepared.location,
+      linkedin: prepared.linkedin,
+      github: prepared.github,
+      website: prepared.website,
+      summary: prepared.summary,
+      skills: prepared.skills,
+      experience: prepared.experience,
+      education: prepared.education,
+      projects: prepared.projects,
+      designHtml: prepared.designHtml,
+      designSource: prepared.designSource,
+      originalFilePath: prepared.originalFilePath,
+      originalMimeType: prepared.originalMimeType,
     });
+
+    await Profile.findOneAndUpdate(
+      { userId: req.user!.userId },
+      {
+        $set: {
+          designHtml: prepared.designHtml,
+          originalFilePath: prepared.originalFilePath,
+          originalMimeType: prepared.originalMimeType,
+        },
+      },
+      { upsert: true }
+    );
 
     return res.json({
       cv: {
@@ -65,6 +80,7 @@ router.post("/upload", requireAuth, upload.single("cv"), async (req, res) => {
         fullName: cv.fullName,
         headline: cv.headline,
         skills: cv.skills,
+        designSource: cv.designSource,
         createdAt: cv.createdAt,
       },
     });

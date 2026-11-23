@@ -1,6 +1,10 @@
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { generateAndParseJson } from "./ai.js";
+import {
+  reconstructDesignHtmlFromFile,
+  reconstructDesignHtmlFromText,
+} from "./cvDesign.js";
 
 export type ParsedProfile = {
   fullName: string;
@@ -81,6 +85,87 @@ export async function extractTextFromCv(
   }
 
   throw new Error("Unsupported file type. Upload PDF, DOCX, or TXT.");
+}
+
+/**
+ * Capture the uploaded CV's visual design as HTML so tailored output can reuse it
+ * instead of our default template.
+ */
+export async function extractCvDesignHtml(
+  buffer: Buffer,
+  filename: string,
+  mimeType: string,
+  cvText?: string
+): Promise<string> {
+  const lower = filename.toLowerCase();
+  const isDocx =
+    mimeType.includes("wordprocessingml") ||
+    mimeType.includes("msword") ||
+    lower.endsWith(".docx") ||
+    lower.endsWith(".doc");
+  const isHtml =
+    mimeType.includes("html") || lower.endsWith(".html") || lower.endsWith(".htm");
+
+  if (isHtml) {
+    const html = buffer.toString("utf8").trim();
+    if (html.includes("<")) return wrapFragmentIfNeeded(html);
+  }
+
+  if (isDocx) {
+    const result = await mammoth.convertToHtml({ buffer });
+    const body = (result.value || "").trim();
+    if (body) {
+      return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      margin: 0;
+      color: #111;
+      font-family: Calibri, "Segoe UI", Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.35;
+    }
+    p { margin: 0 0 6px; }
+    h1, h2, h3 { margin: 12px 0 6px; }
+    ul { margin: 4px 0 8px; padding-left: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { vertical-align: top; }
+  </style>
+</head>
+<body>${body}</body>
+</html>`;
+    }
+  }
+
+  const text =
+    (cvText || "").trim() ||
+    (await extractTextFromCv(buffer, filename, mimeType));
+
+  const isPdf = mimeType.includes("pdf") || lower.endsWith(".pdf");
+  if (isPdf) {
+    try {
+      return await reconstructDesignHtmlFromFile({
+        buffer,
+        mimeType: mimeType || "application/pdf",
+        filename,
+        cvText: text,
+      });
+    } catch (err) {
+      console.warn(
+        "[cvParse] vision design clone failed, text fallback:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
+  return reconstructDesignHtmlFromText(text);
+}
+
+function wrapFragmentIfNeeded(html: string) {
+  if (/<html/i.test(html)) return html;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body>${html}</body></html>`;
 }
 
 export async function parseCvTextToProfile(cvText: string): Promise<ParsedProfile> {

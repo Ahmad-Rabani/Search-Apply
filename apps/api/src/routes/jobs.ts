@@ -156,7 +156,30 @@ router.post("/:id/tailor", requireAuth, async (req, res) => {
       });
     }
 
-    const result = await tailorCvForJob(profile, job);
+    const p = profile as {
+      designHtml?: string;
+      originalFilePath?: string;
+      originalMimeType?: string;
+    };
+    let originalFile:
+      | { buffer: Buffer; mimeType: string; filename: string }
+      | undefined;
+    if (p.originalFilePath) {
+      const { readStoredCvFile } = await import("../services/cvStorage.js");
+      const buf = await readStoredCvFile(p.originalFilePath);
+      if (buf?.length) {
+        originalFile = {
+          buffer: buf,
+          mimeType: p.originalMimeType || "application/pdf",
+          filename: "cv.pdf",
+        };
+      }
+    }
+
+    const result = await tailorCvForJob(profile, job, {
+      designHtml: String(p.designHtml || ""),
+      originalFile,
+    });
 
     const tailored = await TailoredDoc.findOneAndUpdate(
       { userId: req.user!.userId, jobId: job._id },

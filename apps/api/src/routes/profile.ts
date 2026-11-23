@@ -4,7 +4,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { Profile } from "../models/Profile.js";
 import { User } from "../models/User.js";
 import { SavedCv } from "../models/SavedCv.js";
-import { extractTextFromCv, parseCvTextToProfile } from "../services/cvParse.js";
+import { prepareCvUpload } from "../services/cvUpload.js";
 
 const router = Router();
 const upload = multer({
@@ -61,31 +61,31 @@ router.post("/upload-cv", requireAuth, upload.single("cv"), async (req, res) => 
       return res.status(400).json({ error: "CV file required (field name: cv)" });
     }
 
-    const text = await extractTextFromCv(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype
-    );
-
-    const parsed = await parseCvTextToProfile(text);
+    const prepared = await prepareCvUpload({
+      userId: req.user!.userId,
+      file: req.file,
+    });
 
     const profile = await Profile.findOneAndUpdate(
       { userId: req.user!.userId },
       {
         $set: {
-          fullName: parsed.fullName,
-          headline: parsed.headline,
-          email: parsed.email || req.user!.email,
-          phone: parsed.phone,
-          location: parsed.location,
-          linkedin: parsed.linkedin,
-          github: parsed.github,
-          website: parsed.website,
-          summary: parsed.summary,
-          skills: parsed.skills,
-          experience: parsed.experience,
-          education: parsed.education,
-          projects: parsed.projects,
+          fullName: prepared.fullName,
+          headline: prepared.headline,
+          email: prepared.email || req.user!.email,
+          phone: prepared.phone,
+          location: prepared.location,
+          linkedin: prepared.linkedin,
+          github: prepared.github,
+          website: prepared.website,
+          summary: prepared.summary,
+          skills: prepared.skills,
+          experience: prepared.experience,
+          education: prepared.education,
+          projects: prepared.projects,
+          designHtml: prepared.designHtml,
+          originalFilePath: prepared.originalFilePath,
+          originalMimeType: prepared.originalMimeType,
         },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
@@ -93,34 +93,38 @@ router.post("/upload-cv", requireAuth, upload.single("cv"), async (req, res) => 
 
     await SavedCv.create({
       userId: req.user!.userId,
-      label: parsed.fullName || req.file.originalname || "Uploaded CV",
-      originalName: req.file.originalname || "",
-      fullName: parsed.fullName,
-      headline: parsed.headline,
-      email: parsed.email || req.user!.email,
-      phone: parsed.phone,
-      location: parsed.location,
-      linkedin: parsed.linkedin,
-      github: parsed.github,
-      website: parsed.website,
-      summary: parsed.summary,
-      skills: parsed.skills,
-      experience: parsed.experience,
-      education: parsed.education,
-      projects: parsed.projects,
+      label: prepared.fullName || prepared.originalName || "Uploaded CV",
+      originalName: prepared.originalName,
+      fullName: prepared.fullName,
+      headline: prepared.headline,
+      email: prepared.email || req.user!.email,
+      phone: prepared.phone,
+      location: prepared.location,
+      linkedin: prepared.linkedin,
+      github: prepared.github,
+      website: prepared.website,
+      summary: prepared.summary,
+      skills: prepared.skills,
+      experience: prepared.experience,
+      education: prepared.education,
+      projects: prepared.projects,
+      designHtml: prepared.designHtml,
+      designSource: prepared.designSource,
+      originalFilePath: prepared.originalFilePath,
+      originalMimeType: prepared.originalMimeType,
     });
 
-    if (parsed.fullName) {
-      await User.findByIdAndUpdate(req.user!.userId, { name: parsed.fullName });
+    if (prepared.fullName) {
+      await User.findByIdAndUpdate(req.user!.userId, { name: prepared.fullName });
     }
 
     const user = await User.findById(req.user!.userId);
-    if (user && parsed.suggestedPreferences) {
-      const roles = parsed.suggestedPreferences.roles?.length
-        ? parsed.suggestedPreferences.roles
+    if (user && prepared.suggestedPreferences) {
+      const roles = prepared.suggestedPreferences.roles?.length
+        ? prepared.suggestedPreferences.roles
         : user.preferences?.roles || [];
-      const keywords = parsed.suggestedPreferences.keywords?.length
-        ? parsed.suggestedPreferences.keywords
+      const keywords = prepared.suggestedPreferences.keywords?.length
+        ? prepared.suggestedPreferences.keywords
         : user.preferences?.keywords || [];
       user.preferences = {
         roles,
@@ -135,8 +139,9 @@ router.post("/upload-cv", requireAuth, upload.single("cv"), async (req, res) => 
     return res.json({
       profile,
       preferences: user?.preferences,
-      extractedChars: text.length,
-      message: "CV parsed and profile updated. Review fields, then save if you edit anything.",
+      designSource: prepared.designSource,
+      message:
+        "CV parsed and visual design saved. Matched CVs will keep your layout, colors, and fonts.",
     });
   } catch (err) {
     console.error(err);

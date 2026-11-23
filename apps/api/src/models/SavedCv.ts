@@ -52,6 +52,16 @@ const savedCvSchema = new Schema(
     experience: { type: [experienceSchema], default: [] },
     education: { type: [educationSchema], default: [] },
     projects: { type: [projectSchema], default: [] },
+    /** HTML snapshot of the uploaded CV layout (fonts/structure/styles). */
+    designHtml: { type: String, default: "" },
+    /** Where the original upload is stored (for vision re-clone). */
+    originalFilePath: { type: String, default: "" },
+    originalMimeType: { type: String, default: "" },
+    designSource: {
+      type: String,
+      enum: ["", "vision", "docx", "html", "text"],
+      default: "",
+    },
   },
   { timestamps: true }
 );

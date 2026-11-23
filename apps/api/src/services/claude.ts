@@ -1,10 +1,15 @@
 import { generateAndParseJson } from "./ai.js";
 import {
+  buildDesignMedia,
+  renderIntoUploadedDesign,
+} from "./cvDesign.js";
+import {
   renderProfessionalCvHtml,
   type TailoredCvContent,
 } from "./cvTemplate.js";
 import type { ProfileDoc } from "../models/Profile.js";
 import type { JobDoc } from "../models/Job.js";
+import type { AiMediaPart } from "./ai.js";
 
 export type TailorResult = {
   matchScore: number;
@@ -16,9 +21,17 @@ export type TailorResult = {
   atsNotes: string;
 };
 
+export type TailorOptions = {
+  /** Prefer the user's uploaded CV layout over the default template. */
+  designHtml?: string;
+  /** Original CV bytes for vision-locked layout matching. */
+  originalFile?: { buffer: Buffer; mimeType: string; filename: string };
+};
+
 export async function tailorCvForJob(
   profile: ProfileDoc,
-  job: JobDoc
+  job: JobDoc,
+  opts?: TailorOptions
 ): Promise<TailorResult> {
   const jdRequiredHints = extractRequiredTechHints(job);
   const candidateSkillPool = expandWithTransferable(
@@ -146,24 +159,55 @@ Return JSON with this exact shape:
     keywords
   );
 
-  const cvHtml = renderProfessionalCvHtml(
-    {
-      fullName: profile.fullName || "",
-      email: profile.email || "",
-      phone: profile.phone || "",
-      location: profile.location || "",
-      linkedin: profile.linkedin || "",
-      github: profile.github || "",
-      website: profile.website || "",
-    },
-    tailoredCv,
-    {
+  const contact = {
+    fullName: profile.fullName || "",
+    email: profile.email || "",
+    phone: profile.phone || "",
+    location: profile.location || "",
+    linkedin: profile.linkedin || "",
+    github: profile.github || "",
+    website: profile.website || "",
+  };
+
+  const designHtml = (
+    opts?.designHtml ||
+    (profile as ProfileDoc & { designHtml?: string }).designHtml ||
+    ""
+  ).trim();
+
+  let cvHtml: string;
+  if (designHtml) {
+    try {
+      let media: AiMediaPart[] | undefined;
+      if (opts?.originalFile?.buffer?.length) {
+        media = await buildDesignMedia(opts.originalFile);
+      }
+      cvHtml = await renderIntoUploadedDesign(
+        designHtml,
+        contact,
+        tailoredCv,
+        { media }
+      );
+    } catch (err) {
+      console.warn(
+        "[tailor] uploaded design render failed, falling back to default template:",
+        err instanceof Error ? err.message : err
+      );
+      cvHtml = renderProfessionalCvHtml(contact, tailoredCv, {
+        targetRole: job.title,
+        company: job.company,
+        matchScore,
+        highlightedSkills: tailoredCv.highlightedSkills,
+      });
+    }
+  } else {
+    cvHtml = renderProfessionalCvHtml(contact, tailoredCv, {
       targetRole: job.title,
       company: job.company,
       matchScore,
       highlightedSkills: tailoredCv.highlightedSkills,
-    }
-  );
+    });
+  }
 
   const cvMarkdown = toMarkdown(profile.fullName || "", tailoredCv);
   const atsNotes = enrichAtsNotes(

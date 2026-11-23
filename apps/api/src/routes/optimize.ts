@@ -6,7 +6,10 @@ import { Profile, type ProfileDoc } from "../models/Profile.js";
 import { OptimizeResult } from "../models/OptimizeResult.js";
 import { SavedCv } from "../models/SavedCv.js";
 import { tailorCvForJob } from "../services/claude.js";
-import { extractTextFromCv, parseCvTextToProfile } from "../services/cvParse.js";
+import { reconstructDesignHtmlFromFile } from "../services/cvDesign.js";
+import { extractTextFromCv } from "../services/cvParse.js";
+import { readStoredCvFile } from "../services/cvStorage.js";
+import { prepareCvUpload } from "../services/cvUpload.js";
 import { htmlToPdf } from "../services/pdf.js";
 import type { JobDoc } from "../models/Job.js";
 
@@ -41,27 +44,63 @@ router.post("/", requireAuth, upload.single("cv"), async (req, res) => {
 
     let profile: ProfileDoc | null = null;
     let source: "upload" | "saved" | "profile" = "profile";
+    let designHtml = "";
+    let originalFile:
+      | { buffer: Buffer; mimeType: string; filename: string }
+      | undefined;
 
     if (req.file) {
-      const text = await extractTextFromCv(
-        req.file.buffer,
-        req.file.originalname,
-        req.file.mimetype
-      );
-      const parsed = await parseCvTextToProfile(text);
+      const prepared = await prepareCvUpload({
+        userId: req.user!.userId,
+        file: req.file,
+      });
+      designHtml = prepared.designHtml;
+      originalFile = {
+        buffer: req.file.buffer,
+        mimeType: prepared.originalMimeType,
+        filename: prepared.originalName,
+      };
       profile = {
-        ...parsed,
-        email: parsed.email || req.user!.email,
+        ...prepared,
+        email: prepared.email || req.user!.email,
+        designHtml,
       } as unknown as ProfileDoc;
       source = "upload";
 
       await SavedCv.create({
         userId: req.user!.userId,
-        label: parsed.fullName || req.file.originalname || "Uploaded CV",
-        originalName: req.file.originalname || "",
-        ...parsed,
-        email: parsed.email || req.user!.email,
+        label: prepared.fullName || prepared.originalName || "Uploaded CV",
+        originalName: prepared.originalName,
+        fullName: prepared.fullName,
+        headline: prepared.headline,
+        email: prepared.email || req.user!.email,
+        phone: prepared.phone,
+        location: prepared.location,
+        linkedin: prepared.linkedin,
+        github: prepared.github,
+        website: prepared.website,
+        summary: prepared.summary,
+        skills: prepared.skills,
+        experience: prepared.experience,
+        education: prepared.education,
+        projects: prepared.projects,
+        designHtml: prepared.designHtml,
+        designSource: prepared.designSource,
+        originalFilePath: prepared.originalFilePath,
+        originalMimeType: prepared.originalMimeType,
       });
+
+      await Profile.findOneAndUpdate(
+        { userId: req.user!.userId },
+        {
+          $set: {
+            designHtml: prepared.designHtml,
+            originalFilePath: prepared.originalFilePath,
+            originalMimeType: prepared.originalMimeType,
+          },
+        },
+        { upsert: true }
+      );
     } else if (cvId) {
       const savedCv = await SavedCv.findOne({
         _id: cvId,
@@ -72,6 +111,27 @@ router.post("/", requireAuth, upload.single("cv"), async (req, res) => {
       }
       profile = savedCv as unknown as ProfileDoc;
       source = "saved";
+
+      const resolved = await resolveDesignFromStoredCv({
+        designHtml: String(savedCv.designHtml || ""),
+        designSource: String(savedCv.designSource || ""),
+        originalFilePath: String(savedCv.originalFilePath || ""),
+        originalMimeType: String(savedCv.originalMimeType || ""),
+        originalName: String(savedCv.originalName || "cv.pdf"),
+      });
+
+      if (!resolved.ok) {
+        return res.status(400).json({ error: resolved.error });
+      }
+
+      designHtml = resolved.designHtml;
+      originalFile = resolved.originalFile;
+
+      if (resolved.designHtmlUpdated) {
+        savedCv.designHtml = designHtml;
+        savedCv.designSource = "vision";
+        await savedCv.save();
+      }
     } else {
       profile = await Profile.findOne({ userId: req.user!.userId });
       if (!profile || !profile.fullName) {
@@ -79,6 +139,38 @@ router.post("/", requireAuth, upload.single("cv"), async (req, res) => {
           error:
             "Choose an existing CV, upload a file, or save your Profile first.",
         });
+      }
+      source = "profile";
+
+      const p = profile as ProfileDoc & {
+        designHtml?: string;
+        originalFilePath?: string;
+        originalMimeType?: string;
+      };
+
+      const resolved = await resolveDesignFromStoredCv({
+        designHtml: String(p.designHtml || ""),
+        designSource: "",
+        originalFilePath: String(p.originalFilePath || ""),
+        originalMimeType: String(p.originalMimeType || ""),
+        originalName: "profile-cv.pdf",
+      });
+
+      if (!resolved.ok) {
+        return res.status(400).json({
+          error:
+            "Re-upload your CV (PDF) so we can keep its colors, fonts, and layout when matching.",
+        });
+      }
+
+      designHtml = resolved.designHtml;
+      originalFile = resolved.originalFile;
+
+      if (resolved.designHtmlUpdated) {
+        await Profile.findOneAndUpdate(
+          { userId: req.user!.userId },
+          { $set: { designHtml } }
+        );
       }
     }
 
@@ -94,7 +186,10 @@ router.post("/", requireAuth, upload.single("cv"), async (req, res) => {
       remote: /remote/i.test(jobDescription) || /remote/i.test(location),
     } as unknown as JobDoc;
 
-    const result = await tailorCvForJob(profile, job);
+    const result = await tailorCvForJob(profile, job, {
+      designHtml,
+      originalFile,
+    });
 
     const saved = await OptimizeResult.findOneAndUpdate(
       { userId: req.user!.userId },
@@ -163,6 +258,75 @@ router.get("/pdf", requireAuth, async (req, res) => {
     });
   }
 });
+
+async function resolveDesignFromStoredCv(params: {
+  designHtml: string;
+  designSource: string;
+  originalFilePath: string;
+  originalMimeType: string;
+  originalName: string;
+}): Promise<
+  | {
+      ok: true;
+      designHtml: string;
+      originalFile?: { buffer: Buffer; mimeType: string; filename: string };
+      designHtmlUpdated: boolean;
+    }
+  | { ok: false; error: string }
+> {
+  const buffer = params.originalFilePath
+    ? await readStoredCvFile(params.originalFilePath)
+    : null;
+
+  const originalFile =
+    buffer && buffer.length
+      ? {
+          buffer,
+          mimeType: params.originalMimeType || "application/pdf",
+          filename: params.originalName || "cv.pdf",
+        }
+      : undefined;
+
+  const needsVisionRebuild =
+    !params.designHtml.trim() ||
+    params.designSource === "text" ||
+    params.designSource === "";
+
+  if (needsVisionRebuild && originalFile) {
+    const text = await extractTextFromCv(
+      originalFile.buffer,
+      originalFile.filename,
+      originalFile.mimeType
+    );
+    const designHtml = await reconstructDesignHtmlFromFile({
+      buffer: originalFile.buffer,
+      mimeType: originalFile.mimeType,
+      filename: originalFile.filename,
+      cvText: text,
+    });
+    return {
+      ok: true,
+      designHtml,
+      originalFile,
+      designHtmlUpdated: true,
+    };
+  }
+
+  if (!params.designHtml.trim() && !originalFile) {
+    return {
+      ok: false,
+      error:
+        "This saved CV has no design file. Upload the original PDF again (Optimize → upload CV) so we can keep its colors and fonts.",
+    };
+  }
+
+  return {
+    ok: true,
+    designHtml: params.designHtml,
+    originalFile,
+    designHtmlUpdated: false,
+  };
+}
 
 function guessTitleFromJd(jd: string) {
   const firstLine = jd

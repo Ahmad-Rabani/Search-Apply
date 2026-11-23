@@ -36,15 +36,30 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export type AiMediaPart = {
+  mimeType: string;
+  data: Buffer;
+};
+
 async function generateWithGemini(params: {
   system: string;
   user: string;
   maxTokens?: number;
   temperature?: number;
+  json?: boolean;
+  media?: AiMediaPart[];
 }): Promise<string> {
   const client = new GoogleGenerativeAI(config.geminiApiKey);
   const models = geminiModelCandidates();
   let lastError: unknown;
+  const wantJson = params.json !== false;
+
+  const mediaParts = (params.media || []).map((m) => ({
+    inlineData: {
+      mimeType: m.mimeType,
+      data: m.data.toString("base64"),
+    },
+  }));
 
   for (const modelName of models) {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -55,11 +70,15 @@ async function generateWithGemini(params: {
           generationConfig: {
             temperature: params.temperature ?? 0.2,
             maxOutputTokens: params.maxTokens ?? 8192,
-            responseMimeType: "application/json",
+            ...(wantJson ? { responseMimeType: "application/json" as const } : {}),
           },
         });
 
-        const result = await model.generateContent(params.user);
+        const result = await model.generateContent(
+          mediaParts.length
+            ? [{ text: params.user }, ...mediaParts]
+            : params.user
+        );
         const text = result.response.text()?.trim();
         if (!text) throw new Error("Gemini returned empty response");
         if (modelName !== config.geminiModel) {
@@ -84,6 +103,54 @@ async function generateWithGemini(params: {
     : new Error("Gemini request failed after retries");
 }
 
+async function generateWithAnthropic(params: {
+  system: string;
+  user: string;
+  maxTokens?: number;
+  temperature?: number;
+  media?: AiMediaPart[];
+}): Promise<string> {
+  const client = new Anthropic({ apiKey: config.anthropicApiKey });
+  const content: Anthropic.MessageCreateParams["messages"][0]["content"] = [];
+
+  for (const m of params.media || []) {
+    if (m.mimeType.startsWith("image/")) {
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: m.mimeType as "image/png" | "image/jpeg" | "image/gif" | "image/webp",
+          data: m.data.toString("base64"),
+        },
+      });
+    } else if (m.mimeType === "application/pdf") {
+      content.push({
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: m.data.toString("base64"),
+        },
+      });
+    }
+  }
+  content.push({ type: "text", text: params.user });
+
+  const response = await client.messages.create({
+    model: config.claudeModel,
+    max_tokens: params.maxTokens ?? 8192,
+    temperature: params.temperature ?? 0.2,
+    system: params.system,
+    messages: [{ role: "user", content }],
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("Claude returned no text");
+  }
+  return textBlock.text;
+}
+
 export async function generateJsonText(params: {
   system: string;
   user: string;
@@ -93,23 +160,27 @@ export async function generateJsonText(params: {
   const provider = getAiProvider();
 
   if (provider === "gemini") {
-    return generateWithGemini(params);
+    return generateWithGemini({ ...params, json: true });
   }
 
-  const client = new Anthropic({ apiKey: config.anthropicApiKey });
-  const response = await client.messages.create({
-    model: config.claudeModel,
-    max_tokens: params.maxTokens ?? 8192,
-    temperature: params.temperature ?? 0.2,
-    system: params.system,
-    messages: [{ role: "user", content: params.user }],
-  });
+  return generateWithAnthropic(params);
+}
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Claude returned no text");
+/** Free-form text (HTML, markdown, etc.) — not forced JSON. */
+export async function generateText(params: {
+  system: string;
+  user: string;
+  maxTokens?: number;
+  temperature?: number;
+  media?: AiMediaPart[];
+}): Promise<string> {
+  const provider = getAiProvider();
+
+  if (provider === "gemini") {
+    return generateWithGemini({ ...params, json: false });
   }
-  return textBlock.text;
+
+  return generateWithAnthropic(params);
 }
 
 export function parseModelJson(raw: string): Record<string, unknown> {

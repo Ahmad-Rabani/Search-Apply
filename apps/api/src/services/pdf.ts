@@ -18,14 +18,14 @@ export async function htmlToPdf(html: string, filename: string) {
 
   try {
     const page = await browser.newPage();
-    await page.setContent(documentHtml, { waitUntil: "networkidle0", timeout: 60000 });
-    await page.emulateMediaType("screen");
+    await page.setContent(documentHtml, { waitUntil: "load", timeout: 60000 });
+    await page.emulateMediaType("print");
     await page.pdf({
       path: pdfPath,
       format: "A4",
       printBackground: true,
-      preferCSSPageSize: false,
-      margin: { top: "0.45in", bottom: "0.45in", left: "0.5in", right: "0.5in" },
+      preferCSSPageSize: true,
+      margin: { top: "0.35in", bottom: "0.35in", left: "0.4in", right: "0.4in" },
     });
   } finally {
     await browser.close();
